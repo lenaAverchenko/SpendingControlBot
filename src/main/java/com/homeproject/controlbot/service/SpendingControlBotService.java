@@ -3,6 +3,8 @@ package com.homeproject.controlbot.service;
 import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Earning;
 import com.homeproject.controlbot.entity.Spending;
+import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.generics.LongPollingBot;
 
 import java.util.List;
 
@@ -12,6 +14,8 @@ public interface SpendingControlBotService {
     String deleteBotUserInformation();
     void setSpending();
     void setEarning();
+    void setSpendingOfTheDay(int day, int month, int year);
+    void setEarningOfTheDay(int day, int month, int year);
 
     List<Spending> findAllSpending();
     List<Spending> findAllSpendingOfTheYear(int year);
@@ -25,6 +29,8 @@ public interface SpendingControlBotService {
     List<Earning> findAllEarningOfTheCurrentYear();
     List<Earning> findAllEarningOfTheMonth(int monthNumber, int year);
     List<Earning> findAllEarningOfTheCurrentMonth();
+    void deleteSpending(long id);
+    void deleteEarning(long id);
 
 
 
