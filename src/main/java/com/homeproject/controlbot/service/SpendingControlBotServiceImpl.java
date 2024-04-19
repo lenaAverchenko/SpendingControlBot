@@ -7,18 +7,25 @@ import com.homeproject.controlbot.entity.Spending;
 import com.homeproject.controlbot.repository.BotUserRepository;
 import com.homeproject.controlbot.repository.EarningRepository;
 import com.homeproject.controlbot.repository.SpendingRepository;
+import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -185,12 +192,14 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     @Override
     public void onUpdateReceived(Update update) {
         if(update.hasMessage() && update.getMessage().hasText()){
-            String receivedMessage = update.getMessage().getText();
-            Long chatId = update.getMessage().getChatId();
-            String firstNameOfTheUser = update.getMessage().getChat().getFirstName();
-            switch (receivedMessage){
+            Message receivedMessage = update.getMessage();
+            String receivedMessageText = receivedMessage.getText();
+            Long chatId = receivedMessage.getChatId();
+            String firstNameOfTheUser = receivedMessage.getChat().getFirstName();
+            switch (receivedMessageText){
                 case "/start":
                     log.info("Command /start was called by " + firstNameOfTheUser);
+                    registerBotUser(receivedMessage);
                     startCommandReceived(chatId, firstNameOfTheUser);
                     break;
                 case "/setEarning":
@@ -224,20 +233,74 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
     private void startCommandReceived(long chatId, String name){
-        String answer = "Hi, " + name + "! Let's start working! What are we going to do right now?";
-        sendMessage(chatId, answer);
+        String answer = EmojiParser.parseToUnicode("Hi, " + name + "!" + ":blush:" + " Let's start working!" + ":computer:" + " What are we going to do right now?" + ":arrow_down:");
+        List<String> buttonNames = List.of("/start", "/setearning", "/settodayspending", "/setspending",
+                "/findspending", "/findearning", "/deletespending", "/deleteearning", "/data", "/deletedata", "/help");
+        sendMessageWithKeyboard(chatId, answer, buttonNames);
         log.info("Replied to user " + name);
     }
-    private void sendMessage(long chatId, String textToSend){
-        SendMessage message = new SendMessage();
-        message.setChatId(String.valueOf(chatId));
-        message.setText(textToSend);
-
+    private void sendMessageWithKeyboard(long chatId, String textToSend, List<String> buttonNames){
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(String.valueOf(chatId));
+        sendMessage.setText(textToSend);
+        if(!buttonNames.isEmpty()){
+            createKeyboardForRequest(buttonNames, sendMessage);
+        }
         try{
-            execute(message);
+            execute(sendMessage);
         } catch (TelegramApiException e) {
-//            TODO
             log.error(ERROR_TEXT + e.getMessage());
+        }
+    }
+    private void sendMessage(long chatId, String textToSend){
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(String.valueOf(chatId));
+        sendMessage.setText(textToSend);
+        try{
+            execute(sendMessage);
+        } catch (TelegramApiException e) {
+            log.error(ERROR_TEXT + e.getMessage());
+        }
+    }
+    private void createKeyboardForRequest(List<String> buttonNames, SendMessage sendMessage){
+        ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
+        List<KeyboardRow> keyboardRows = new ArrayList<>();
+        KeyboardRow row = new KeyboardRow();
+        int counter = 0;
+        for (String button: buttonNames) {
+            if (counter == 3){
+                keyboardRows.add(row);
+                counter = 0;
+                row = new KeyboardRow();
+            }
+            row.add(button);
+            counter += 1;
+        }
+        if (!row.isEmpty()){
+            keyboardRows.add(row);
+        }
+        replyKeyboardMarkup.setKeyboard(keyboardRows);
+        sendMessage.setReplyMarkup(replyKeyboardMarkup);
+    }
+
+    private void registerBotUser(Message message){
+        String userId = message.getChat().getUserName();
+        log.info("Registration method was called by " + userId);
+        if (botUserRepository.findById(message.getChatId()).isEmpty()){
+            sendMessageWithKeyboard(message.getChatId(), "Do you want to register and continue?", List.of("yes", "no"));
+//            TODO - what's happening when we are pressing yes or no
+            long chatId = message.getChatId();
+            Chat chat = message.getChat();
+            BotUser user = new BotUser();
+            user.setId(chatId);
+            user.setUserName(userId);
+            user.setFirstName(chat.getFirstName());
+            user.setLastName(chat.getLastName());
+            user.setSpendingList(new ArrayList<>());
+            user.setEarningList(new ArrayList<>());
+            user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
+            botUserRepository.save(user);
+            log.info("User saved with the information: " + user);
         }
     }
 }
