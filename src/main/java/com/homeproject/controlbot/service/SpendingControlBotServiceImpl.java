@@ -14,19 +14,23 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+
 
 @Slf4j
 @Service
@@ -57,7 +61,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             "Type /deletedata to delete stored info about your account\n\n" +
             "Type /help to see this message again.";
 
-
     private SpendingControlBotServiceImpl (BotConfig botConfig) {
         this.botConfig = botConfig;
         List<BotCommand> listOfCommands = new ArrayList<>();
@@ -80,12 +83,132 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
     @Override
+    public void onUpdateReceived(Update update) {
+        if(update.hasMessage() && update.getMessage().hasText()) {
+            Message receivedMessage = update.getMessage();
+            String receivedMessageText = receivedMessage.getText();
+            long chatId = receivedMessage.getChatId();
+            String firstNameOfTheUser = receivedMessage.getChat().getFirstName();
+            if (receivedMessageText.contains("/send") && (botConfig.getBotOwnerId() == chatId)) {
+                log.info("send command was called");
+                String textToSend = EmojiParser.parseToUnicode(receivedMessageText.substring(
+                        receivedMessageText.indexOf(" ")));
+                List<BotUser> users = botUserRepository.findAll();
+                for (BotUser user : users) {
+                    sendMessage(user.getId(), textToSend);
+                }
+            } else {
+                switch (receivedMessageText) {
+                    case "/start":
+                        log.info("Command /start was called by " + firstNameOfTheUser);
+                        startCommandReceived(chatId, firstNameOfTheUser);
+                        registerBotUser(update);
+                        break;
+                    case "/setearning":
+                        break;
+                    case "/settodayspending":
+                        break;
+                    case "/setspending":
+                        break;
+                    case "/findSpending":
+                        break;
+                    case "/findearning":
+                        break;
+                    case "/deletespending":
+                        break;
+                    case "/deleteearning":
+                        break;
+                    case "/data":
+                        break;
+                    case "/deletedata":
+                        deleteBotUserInformation(update);
+                        break;
+                    case "/help":
+                        sendMessage(chatId, HELP_TEXT);
+                        break;
+                    case "/register":
+                        registerBotUser(update);
+                        break;
+                    default:
+                        sendMessage(chatId, "Sorry, the command was not recognized");
+                        break;
+
+                }
+        }
+
+        } else if (update.hasCallbackQuery()) {
+            String callBackData = update.getCallbackQuery().getData();
+            Message callbackMessage = update.getCallbackQuery().getMessage();
+            long messageId = callbackMessage.getMessageId();
+            long chatId = callbackMessage.getChatId();
+            String answerText = null;
+            switch (callBackData){
+                case "YES_BUTTON":
+                    answerText = registrationPermittedAct(callbackMessage);
+                    break;
+                case "NO_BUTTON":
+                    answerText = "You pressed NO button. Access to the Bot is not allowed. Try again";
+                    break;
+                case "YES_DELETE_BUTTON":
+                    log.info("yes delete button pressed");
+                    botUserRepository.delete(Objects.requireNonNull(botUserRepository.findById(chatId)).orElse(null));
+                    answerText = "Data for your account has been deleted.";
+                    log.info("information about the user is deleted");
+                    break;
+                case "NO_DELETE_BUTTON":
+                    log.info("no button pressed");
+                    answerText = "I won't delete the data for your account. You can press start to continue.";
+                    break;
+                default:
+                    break;
+            }
+            sendEditedMessage(chatId, (int) messageId, answerText);
+        }
+
+    }
+
+    private void registerBotUser(Update update){
+        Message message = update.getMessage();
+        String userId = message.getChat().getUserName();
+        log.info("Registration method was called by " + userId);
+        if (botUserRepository.findById(message.getChatId()).isEmpty()){
+            log.info("there is no such user. He's needed to be saved");
+            sendMessageWithButtons(message.getChatId(), "But first of all. Do you truly want to register and continue?", List.of(List.of("YES", "NO")));
+//            TODO - what's happening when we are pressing yes or no
+            log.info("registration question was asked");
+        }
+    }
+
+    private String registrationPermittedAct(Message message){
+        log.info("registrationPermittedAct method was called ");
+        String notificationMessage = "You pressed YES button. I'm saving your data.";
+        long chatId = message.getChatId();
+        Chat chat = message.getChat();
+        BotUser user = new BotUser();
+        user.setId(chatId);
+        user.setUserName(message.getChat().getUserName());
+        user.setFirstName(chat.getFirstName());
+        user.setLastName(chat.getLastName());
+        user.setSpendingList(new ArrayList<>());
+        user.setEarningList(new ArrayList<>());
+        user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
+        botUserRepository.save(user);
+        log.info("User saved with the information: " + user);
+        return notificationMessage;
+    }
+
+
+    @Override
     public BotUser getBotUserInformation() {
         return null;
     }
 
     @Override
-    public String deleteBotUserInformation() {
+    public String deleteBotUserInformation(Update update) {
+        log.info("deleteBotUserInformation was called");
+        sendMessageWithButtons(update.getMessage().getChatId(),"Do you really want to delete all your data from database?", List.of(List.of("YES_DELETE", "NO_DELETE")));
+        Message receivedMessage = update.getMessage();
+        String notificationMessage = null;
         return null;
     }
 
@@ -189,47 +312,14 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         return botConfig.getBotToken();
     }
 
-    @Override
-    public void onUpdateReceived(Update update) {
-        if(update.hasMessage() && update.getMessage().hasText()){
-            Message receivedMessage = update.getMessage();
-            String receivedMessageText = receivedMessage.getText();
-            Long chatId = receivedMessage.getChatId();
-            String firstNameOfTheUser = receivedMessage.getChat().getFirstName();
-            switch (receivedMessageText){
-                case "/start":
-                    log.info("Command /start was called by " + firstNameOfTheUser);
-                    registerBotUser(receivedMessage);
-                    startCommandReceived(chatId, firstNameOfTheUser);
-                    break;
-                case "/setEarning":
-                    break;
-                case "/setTodaySpending":
-                    break;
-                case "/setSpending":
-                    break;
-                case "/findSpending":
-                    break;
-                case "/findEarning":
-                    break;
-                case "/deletespending":
-                    break;
-                case "/deleteearning":
-                    break;
-                case "/data":
-                    break;
-                case "/deleteData":
-                    break;
-                case "/help":
-                    sendMessage(chatId, HELP_TEXT);
-                    break;
-                default:
-                    sendMessage(chatId, "Sorry, the command was not recognized");
-                    break;
 
-            }
+    private boolean expectingButtonPressed (String callBackData, String expectingNameOfButton){
+//            Получаем идентификатор кнопки
+        log.info("yesButtonPressed was called");
+        if (callBackData.equals(expectingNameOfButton)){
+            return true;
         }
-
+        return false;
     }
 
     private void startCommandReceived(long chatId, String name){
@@ -246,21 +336,42 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         if(!buttonNames.isEmpty()){
             createKeyboardForRequest(buttonNames, sendMessage);
         }
-        try{
-            execute(sendMessage);
-        } catch (TelegramApiException e) {
-            log.error(ERROR_TEXT + e.getMessage());
-        }
+        executeMessage(sendMessage);
     }
-    private void sendMessage(long chatId, String textToSend){
+    private void sendMessageWithButtons(long chatId, String textToSend, List<List<String>> buttonNames){
+        log.info("sendMessageWithButtons was called");
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(String.valueOf(chatId));
         sendMessage.setText(textToSend);
-        try{
-            execute(sendMessage);
-        } catch (TelegramApiException e) {
-            log.error(ERROR_TEXT + e.getMessage());
+        if(!buttonNames.isEmpty()){
+            createButtonsInMessage(sendMessage, buttonNames);
         }
+        executeMessage(sendMessage);
+    }
+
+    private void createButtonsInMessage(SendMessage sendMessage, List<List<String>> buttonNames){
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> lists = new ArrayList<>();
+        for (List<String> list:buttonNames) {
+            List<InlineKeyboardButton> buttons = new ArrayList<>();
+            for (String buttonName:list){
+                InlineKeyboardButton inlineKeyboardButton =new InlineKeyboardButton();
+                inlineKeyboardButton.setText(buttonName);
+                inlineKeyboardButton.setCallbackData(buttonName + "_BUTTON");
+                buttons.add(inlineKeyboardButton);
+            }
+            lists.add(buttons);
+        }
+        markup.setKeyboard(lists);
+        sendMessage.setReplyMarkup(markup);
+    }
+
+    private void sendMessage(long chatId, String textToSend){
+        log.info("sendMessage was called");
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(String.valueOf(chatId));
+        sendMessage.setText(textToSend);
+        executeMessage(sendMessage);
     }
     private void createKeyboardForRequest(List<String> buttonNames, SendMessage sendMessage){
         ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
@@ -283,24 +394,24 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         sendMessage.setReplyMarkup(replyKeyboardMarkup);
     }
 
-    private void registerBotUser(Message message){
-        String userId = message.getChat().getUserName();
-        log.info("Registration method was called by " + userId);
-        if (botUserRepository.findById(message.getChatId()).isEmpty()){
-            sendMessageWithKeyboard(message.getChatId(), "Do you want to register and continue?", List.of("yes", "no"));
-//            TODO - what's happening when we are pressing yes or no
-            long chatId = message.getChatId();
-            Chat chat = message.getChat();
-            BotUser user = new BotUser();
-            user.setId(chatId);
-            user.setUserName(userId);
-            user.setFirstName(chat.getFirstName());
-            user.setLastName(chat.getLastName());
-            user.setSpendingList(new ArrayList<>());
-            user.setEarningList(new ArrayList<>());
-            user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
-            botUserRepository.save(user);
-            log.info("User saved with the information: " + user);
+    private void sendEditedMessage(long chatId, int messageId, String notificationMessage){
+        EditMessageText messageText = new EditMessageText();
+        messageText.setChatId(String.valueOf(chatId));
+        messageText.setText(notificationMessage);
+        messageText.setMessageId((int) messageId);
+        try{
+            execute(messageText);
+        } catch (TelegramApiException e){
+            log.error(ERROR_TEXT + e.getMessage());
         }
     }
+
+    private void executeMessage(SendMessage sendMessage){
+        try{
+            execute(sendMessage);
+        } catch (TelegramApiException e) {
+            log.error(ERROR_TEXT + e.getMessage());
+        }
+    }
+
 }

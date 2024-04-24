@@ -4,6 +4,7 @@ import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Earning;
 import com.homeproject.controlbot.entity.Spending;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.generics.LongPollingBot;
 
 import java.util.List;
@@ -11,7 +12,7 @@ import java.util.List;
 public interface SpendingControlBotService {
 
     BotUser getBotUserInformation();
-    String deleteBotUserInformation();
+    String deleteBotUserInformation(Update update);
     void setSpending();
     void setEarning();
     void setSpendingOfTheDay(int day, int month, int year);
