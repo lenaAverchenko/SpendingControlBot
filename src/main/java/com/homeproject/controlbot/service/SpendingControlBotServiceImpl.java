@@ -1,15 +1,18 @@
 package com.homeproject.controlbot.service;
 
 import com.homeproject.controlbot.configuration.BotConfig;
+import com.homeproject.controlbot.entity.AutomatedMessage;
 import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Earning;
 import com.homeproject.controlbot.entity.Spending;
+import com.homeproject.controlbot.repository.AutomatedMessageRepository;
 import com.homeproject.controlbot.repository.BotUserRepository;
 import com.homeproject.controlbot.repository.EarningRepository;
 import com.homeproject.controlbot.repository.SpendingRepository;
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -44,6 +47,8 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     @Autowired
     private SpendingRepository spendingRepository;
+    @Autowired
+    private AutomatedMessageRepository automatedMessageRepository;
 
     final private BotConfig botConfig;
     final String ERROR_TEXT = "The error occurred: ";
@@ -414,4 +419,15 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         }
     }
 
+    @Scheduled(cron = "${cron.scheduler}")
+//    @Scheduled(cron = "0 * * * * *") - раз в минуту. Выше - раз в месяц
+    private void sendAutoMessage(){
+        List<AutomatedMessage> automatedMessageList = automatedMessageRepository.findAll();
+        List<BotUser> botUsersList = botUserRepository.findAll();
+        for (AutomatedMessage mes:automatedMessageList) {
+            for (BotUser user:botUsersList) {
+                sendMessage(user.getId(), mes.getAdMessage());
+            }
+        }
+    }
 }
