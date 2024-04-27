@@ -5,6 +5,7 @@ import com.homeproject.controlbot.entity.AutomatedMessage;
 import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Earning;
 import com.homeproject.controlbot.entity.Spending;
+import com.homeproject.controlbot.enums.TypeOfEarning;
 import com.homeproject.controlbot.repository.AutomatedMessageRepository;
 import com.homeproject.controlbot.repository.BotUserRepository;
 import com.homeproject.controlbot.repository.EarningRepository;
@@ -29,10 +30,13 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 
 @Slf4j
@@ -49,7 +53,9 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     private SpendingRepository spendingRepository;
     @Autowired
     private AutomatedMessageRepository automatedMessageRepository;
+    private TypeOfEarning typeOfEarning;
 
+    private BigDecimal earnedSum;
     final private BotConfig botConfig;
     final String ERROR_TEXT = "The error occurred: ";
     static final String HELP_TEXT = "This bot is created to calculate, to check and to verify your spendings and earnings \n\n" +
@@ -66,7 +72,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             "Type /deletedata to delete stored info about your account\n\n" +
             "Type /help to see this message again.";
 
-    private SpendingControlBotServiceImpl (BotConfig botConfig) {
+    private SpendingControlBotServiceImpl(BotConfig botConfig) {
         this.botConfig = botConfig;
         List<BotCommand> listOfCommands = new ArrayList<>();
         listOfCommands.add(new BotCommand("/start", "start working with spendingControlBot"));
@@ -80,7 +86,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         listOfCommands.add(new BotCommand("/data", "get stored information about my account"));
         listOfCommands.add(new BotCommand("/deletedata", "delete stored information about my account"));
         listOfCommands.add(new BotCommand("/help", "get information about how the bot works"));
-        try{
+        try {
             this.execute(new SetMyCommands(listOfCommands, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
             log.error("Error setting bot's command list: " + e.getMessage());
@@ -89,57 +95,76 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     @Override
     public void onUpdateReceived(Update update) {
-        if(update.hasMessage() && update.getMessage().hasText()) {
+        if (update.hasMessage() && update.getMessage().hasText()) {
             Message receivedMessage = update.getMessage();
             String receivedMessageText = receivedMessage.getText();
             long chatId = receivedMessage.getChatId();
             String firstNameOfTheUser = receivedMessage.getChat().getFirstName();
-            if (receivedMessageText.contains("/send") && (botConfig.getBotOwnerId() == chatId)) {
-                log.info("send command was called");
-                String textToSend = EmojiParser.parseToUnicode(receivedMessageText.substring(
-                        receivedMessageText.indexOf(" ")));
-                List<BotUser> users = botUserRepository.findAll();
-                for (BotUser user : users) {
-                    sendMessage(user.getId(), textToSend);
+            if (update.getMessage().getText().startsWith("/")) {
+                if (receivedMessageText.contains("/send") && (botConfig.getBotOwnerId() == chatId)) {
+                    log.info("send command was called");
+                    String textToSend = EmojiParser.parseToUnicode(receivedMessageText.substring(
+                            receivedMessageText.indexOf(" ")));
+                    List<BotUser> users = botUserRepository.findAll();
+                    for (BotUser user : users) {
+                        sendMessage(user.getId(), textToSend);
+                    }
+                } else {
+                    switch (receivedMessageText) {
+                        case "/start":
+                            log.info("Command /start was called by " + firstNameOfTheUser);
+                            startCommandReceived(chatId, firstNameOfTheUser);
+                            registerBotUser(update);
+                            break;
+                        case "/setearning":
+                            setEarningProcess(chatId);
+                            break;
+                        case "/settodayspending":
+                            break;
+                        case "/setspending":
+                            break;
+                        case "/findSpending":
+                            break;
+                        case "/findearning":
+                            break;
+                        case "/deletespending":
+                            break;
+                        case "/deleteearning":
+                            break;
+                        case "/data":
+                            sendMessage(chatId, getBotUserInformation(receivedMessage).toString());
+                            break;
+                        case "/deletedata":
+                            deleteBotUserInformation(update);
+                            break;
+                        case "/help":
+                            sendMessage(chatId, HELP_TEXT);
+                            break;
+                        case "/register":
+                            registerBotUser(update);
+                            break;
+                        default:
+                            sendMessage(chatId, "Sorry, the command was not recognized");
+                            break;
+                    }
                 }
             } else {
-                switch (receivedMessageText) {
-                    case "/start":
-                        log.info("Command /start was called by " + firstNameOfTheUser);
-                        startCommandReceived(chatId, firstNameOfTheUser);
-                        registerBotUser(update);
-                        break;
-                    case "/setearning":
-                        break;
-                    case "/settodayspending":
-                        break;
-                    case "/setspending":
-                        break;
-                    case "/findSpending":
-                        break;
-                    case "/findearning":
-                        break;
-                    case "/deletespending":
-                        break;
-                    case "/deleteearning":
-                        break;
-                    case "/data":
-                        break;
-                    case "/deletedata":
-                        deleteBotUserInformation(update);
-                        break;
-                    case "/help":
-                        sendMessage(chatId, HELP_TEXT);
-                        break;
-                    case "/register":
-                        registerBotUser(update);
-                        break;
-                    default:
-                        sendMessage(chatId, "Sorry, the command was not recognized");
-                        break;
-
+                if (typeOfEarning != null) {
+                    String numberPattern = "^\\d*\\.?\\d+$";
+                    if (Pattern.matches(numberPattern, receivedMessageText)) {
+                        log.info("input text is: " + receivedMessageText);
+                        earnedSum = new BigDecimal(receivedMessageText);
+                        log.info("sum is: " + earnedSum);
+                        setEarning(chatId, earnedSum);
+                    } else {
+                        earnedSum = null;
+                        typeOfEarning = null;
+                        log.error("The error occurred with earnedSum - format parsing.");
+                        sendMessage(chatId, "Wrong format of the earned sum. You can try again pressing");
+                    }
                 }
-        }
+
+            }
 
         } else if (update.hasCallbackQuery()) {
             String callBackData = update.getCallbackQuery().getData();
@@ -147,7 +172,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             long messageId = callbackMessage.getMessageId();
             long chatId = callbackMessage.getChatId();
             String answerText = null;
-            switch (callBackData){
+            switch (callBackData) {
                 case "YES_BUTTON":
                     answerText = registrationPermittedAct(callbackMessage);
                     break;
@@ -164,6 +189,26 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                     log.info("no button pressed");
                     answerText = "I won't delete the data for your account. You can press start to continue.";
                     break;
+                case "SALARY_BUTTON":
+                    log.info("SALARY_BUTTON" + chatId);
+                    typeOfEarning = TypeOfEarning.SALARY;
+                    setEarningProcess(chatId);
+                    break;
+                case "CHILD_SUPPORT_BUTTON":
+                    log.info("CHILD_SUPPORT_BUTTON" + chatId);
+                    typeOfEarning = TypeOfEarning.CHILD_SUPPORT;
+                    setEarningProcess(chatId);
+                    break;
+                case "PRISE_BUTTON":
+                    log.info("PRISE_BUTTON" + chatId);
+                    typeOfEarning = TypeOfEarning.PRISE;
+                    setEarningProcess(chatId);
+                    break;
+                case "GIFT_BUTTON":
+                    log.info("GIFT_BUTTON" + chatId);
+                    typeOfEarning = TypeOfEarning.GIFT;
+                    setEarningProcess(chatId);
+                    break;
                 default:
                     break;
             }
@@ -172,11 +217,11 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     }
 
-    private void registerBotUser(Update update){
+    private void registerBotUser(Update update) {
         Message message = update.getMessage();
         String userId = message.getChat().getUserName();
         log.info("Registration method was called by " + userId);
-        if (botUserRepository.findById(message.getChatId()).isEmpty()){
+        if (botUserRepository.findById(message.getChatId()).isEmpty()) {
             log.info("there is no such user. He's needed to be saved");
             sendMessageWithButtons(message.getChatId(), "But first of all. Do you truly want to register and continue?", List.of(List.of("YES", "NO")));
 //            TODO - what's happening when we are pressing yes or no
@@ -184,7 +229,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         }
     }
 
-    private String registrationPermittedAct(Message message){
+    private String registrationPermittedAct(Message message) {
         log.info("registrationPermittedAct method was called ");
         String notificationMessage = "You pressed YES button. I'm saving your data.";
         long chatId = message.getChatId();
@@ -204,16 +249,14 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
 
     @Override
-    public BotUser getBotUserInformation() {
-        return null;
+    public BotUser getBotUserInformation(Message message) {
+        return botUserRepository.findById(message.getChatId()).orElse(null);
     }
 
     @Override
     public String deleteBotUserInformation(Update update) {
         log.info("deleteBotUserInformation was called");
-        sendMessageWithButtons(update.getMessage().getChatId(),"Do you really want to delete all your data from database?", List.of(List.of("YES_DELETE", "NO_DELETE")));
-        Message receivedMessage = update.getMessage();
-        String notificationMessage = null;
+        sendMessageWithButtons(update.getMessage().getChatId(), "Do you really want to delete all your data from database?", List.of(List.of("YES_DELETE", "NO_DELETE")));
         return null;
     }
 
@@ -223,7 +266,46 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
     @Override
-    public void setEarning() {
+    public void setEarning(long chatId, BigDecimal sum) {
+        log.info("setEarning has been started");
+        Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+        Earning earning = new Earning();
+        earning.setRegisteredAt(currentTime);
+        earning.setBotUser(botUserRepository.findById(chatId).orElse(null));
+        earning.setEarnedAt(currentTime);
+        earning.setTypeOfEarning(typeOfEarning);
+        earning.setEarningSum(earnedSum);
+        earningRepository.save(earning);
+        typeOfEarning = null;
+        if (!earningRepository.findById(earning.getEarningId()).isEmpty()) {
+            sendMessage(chatId, "The provided data about your recent earning has been successfully saved.");
+
+            earnedSum = null;
+        }
+    }
+
+    public void setEarningProcess(long chatId) {
+        log.info("setEarningProcess called with chatId " + chatId);
+        if (typeOfEarning == null) {
+            log.info("setEarningProcess called and typeOfEarning == null, with chatId " + chatId);
+            List<List<String>> earningTypeList = List.of(Arrays.stream(TypeOfEarning.values()).map(v -> v.toString()).toList());
+            sendMessageWithButtons(chatId, "Pick the type of earning:", earningTypeList);
+        } else {
+            log.info("setEarningProcess called and typeOfEarning != null, with chatId " + chatId);
+            if (earnedSum == null) {
+                log.info("setEarningProcess called and sum ==0 " + chatId);
+                sendMessage(chatId, "What is the earned sum of money:");
+//            } else {
+//                log.info("setEarningProcess called and sum !=0 " + chatId);
+//                setEarning(chatId, typeOfEarning, earnedSum);
+//                typeOfEarning = null;
+//                earnedSum = null;
+            }
+        }
+    }
+
+    @Override
+    public void setEarningOfTheDay(int day, int month, int year) {
 
     }
 
@@ -232,10 +314,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     }
 
-    @Override
-    public void setEarningOfTheDay(int day, int month, int year) {
-
-    }
 
     @Override
     public List<Spending> findAllSpending() {
@@ -277,7 +355,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         return null;
     }
 
-//    @Override
+    //    @Override
     public List<Earning> findAllEarningOfTheYear(int year) {
         return null;
     }
@@ -318,49 +396,51 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
 
-    private boolean expectingButtonPressed (String callBackData, String expectingNameOfButton){
+    private boolean expectingButtonPressed(String callBackData, String expectingNameOfButton) {
 //            Получаем идентификатор кнопки
         log.info("yesButtonPressed was called");
-        if (callBackData.equals(expectingNameOfButton)){
+        if (callBackData.equals(expectingNameOfButton)) {
             return true;
         }
         return false;
     }
 
-    private void startCommandReceived(long chatId, String name){
+    private void startCommandReceived(long chatId, String name) {
         String answer = EmojiParser.parseToUnicode("Hi, " + name + "!" + ":blush:" + " Let's start working!" + ":computer:" + " What are we going to do right now?" + ":arrow_down:");
         List<String> buttonNames = List.of("/start", "/setearning", "/settodayspending", "/setspending",
                 "/findspending", "/findearning", "/deletespending", "/deleteearning", "/data", "/deletedata", "/help");
         sendMessageWithKeyboard(chatId, answer, buttonNames);
         log.info("Replied to user " + name);
     }
-    private void sendMessageWithKeyboard(long chatId, String textToSend, List<String> buttonNames){
+
+    private void sendMessageWithKeyboard(long chatId, String textToSend, List<String> buttonNames) {
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(String.valueOf(chatId));
         sendMessage.setText(textToSend);
-        if(!buttonNames.isEmpty()){
+        if (!buttonNames.isEmpty()) {
             createKeyboardForRequest(buttonNames, sendMessage);
         }
         executeMessage(sendMessage);
     }
-    private void sendMessageWithButtons(long chatId, String textToSend, List<List<String>> buttonNames){
+
+    private void sendMessageWithButtons(long chatId, String textToSend, List<List<String>> buttonNames) {
         log.info("sendMessageWithButtons was called");
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(String.valueOf(chatId));
         sendMessage.setText(textToSend);
-        if(!buttonNames.isEmpty()){
+        if (!buttonNames.isEmpty()) {
             createButtonsInMessage(sendMessage, buttonNames);
         }
         executeMessage(sendMessage);
     }
 
-    private void createButtonsInMessage(SendMessage sendMessage, List<List<String>> buttonNames){
+    private void createButtonsInMessage(SendMessage sendMessage, List<List<String>> buttonNames) {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> lists = new ArrayList<>();
-        for (List<String> list:buttonNames) {
+        for (List<String> list : buttonNames) {
             List<InlineKeyboardButton> buttons = new ArrayList<>();
-            for (String buttonName:list){
-                InlineKeyboardButton inlineKeyboardButton =new InlineKeyboardButton();
+            for (String buttonName : list) {
+                InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
                 inlineKeyboardButton.setText(buttonName);
                 inlineKeyboardButton.setCallbackData(buttonName + "_BUTTON");
                 buttons.add(inlineKeyboardButton);
@@ -371,20 +451,21 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         sendMessage.setReplyMarkup(markup);
     }
 
-    private void sendMessage(long chatId, String textToSend){
+    private void sendMessage(long chatId, String textToSend) {
         log.info("sendMessage was called");
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(String.valueOf(chatId));
         sendMessage.setText(textToSend);
         executeMessage(sendMessage);
     }
-    private void createKeyboardForRequest(List<String> buttonNames, SendMessage sendMessage){
+
+    private void createKeyboardForRequest(List<String> buttonNames, SendMessage sendMessage) {
         ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
         List<KeyboardRow> keyboardRows = new ArrayList<>();
         KeyboardRow row = new KeyboardRow();
         int counter = 0;
-        for (String button: buttonNames) {
-            if (counter == 3){
+        for (String button : buttonNames) {
+            if (counter == 3) {
                 keyboardRows.add(row);
                 counter = 0;
                 row = new KeyboardRow();
@@ -392,27 +473,27 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             row.add(button);
             counter += 1;
         }
-        if (!row.isEmpty()){
+        if (!row.isEmpty()) {
             keyboardRows.add(row);
         }
         replyKeyboardMarkup.setKeyboard(keyboardRows);
         sendMessage.setReplyMarkup(replyKeyboardMarkup);
     }
 
-    private void sendEditedMessage(long chatId, int messageId, String notificationMessage){
+    private void sendEditedMessage(long chatId, int messageId, String notificationMessage) {
         EditMessageText messageText = new EditMessageText();
         messageText.setChatId(String.valueOf(chatId));
         messageText.setText(notificationMessage);
         messageText.setMessageId((int) messageId);
-        try{
+        try {
             execute(messageText);
-        } catch (TelegramApiException e){
+        } catch (TelegramApiException e) {
             log.error(ERROR_TEXT + e.getMessage());
         }
     }
 
-    private void executeMessage(SendMessage sendMessage){
-        try{
+    private void executeMessage(SendMessage sendMessage) {
+        try {
             execute(sendMessage);
         } catch (TelegramApiException e) {
             log.error(ERROR_TEXT + e.getMessage());
@@ -421,11 +502,11 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     @Scheduled(cron = "${cron.scheduler}")
 //    @Scheduled(cron = "0 * * * * *") - раз в минуту. Выше - раз в месяц
-    private void sendAutoMessage(){
+    private void sendAutoMessage() {
         List<AutomatedMessage> automatedMessageList = automatedMessageRepository.findAll();
         List<BotUser> botUsersList = botUserRepository.findAll();
-        for (AutomatedMessage mes:automatedMessageList) {
-            for (BotUser user:botUsersList) {
+        for (AutomatedMessage mes : automatedMessageList) {
+            for (BotUser user : botUsersList) {
                 sendMessage(user.getId(), mes.getAdMessage());
             }
         }

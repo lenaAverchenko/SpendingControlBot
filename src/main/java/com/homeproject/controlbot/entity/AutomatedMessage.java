@@ -8,7 +8,7 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 
 @Data
-@Entity(name = "automated_message-table")
+@Entity(name = "automated_message_table")
 public class AutomatedMessage {
 
     @Id

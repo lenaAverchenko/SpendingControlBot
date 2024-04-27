@@ -3,18 +3,20 @@ package com.homeproject.controlbot.service;
 import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Earning;
 import com.homeproject.controlbot.entity.Spending;
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import com.homeproject.controlbot.enums.TypeOfEarning;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.generics.LongPollingBot;
 
+
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface SpendingControlBotService {
 
-    BotUser getBotUserInformation();
+    BotUser getBotUserInformation(Message message);
     String deleteBotUserInformation(Update update);
     void setSpending();
-    void setEarning();
+    void setEarning(long chatId, BigDecimal sum);
     void setSpendingOfTheDay(int day, int month, int year);
     void setEarningOfTheDay(int day, int month, int year);
 

@@ -2,7 +2,6 @@ package com.homeproject.controlbot.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.ToString;
 
 import javax.persistence.*;
 import java.sql.Timestamp;
@@ -20,14 +19,21 @@ public class BotUser {
     private String phoneNumber;
 
     @OneToMany (mappedBy = "botUser",cascade = CascadeType.ALL)
-    @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Spending> spendingList;
 
     @OneToMany (mappedBy = "botUser",cascade = CascadeType.ALL)
-    @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Earning> earningList;
     private Timestamp registeredAt;
 
+    @Override
+    public String toString() {
+        return "Your personal information:\n\n" +
+                "id: " + id + "\n" +
+                "First name: " + firstName + "\n" +
+                "Last name: " + lastName + "\n" +
+                "Username: " + userName + "\n" +
+                "Registered at: " + registeredAt + "\n";
+    }
 }
