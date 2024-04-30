@@ -9,6 +9,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.List;
 
 public interface SpendingControlBotService {
@@ -18,7 +19,7 @@ public interface SpendingControlBotService {
     void setSpending();
     void setEarning(long chatId, BigDecimal sum);
     void setSpendingOfTheDay(int day, int month, int year);
-    void setEarningOfTheDay(int day, int month, int year);
+    void setEarningByDate(long chatId, BigDecimal sum, Timestamp date);
 
     List<Spending> findAllSpending();
     List<Spending> findAllSpendingOfTheYear(int year);
