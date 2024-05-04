@@ -28,13 +28,13 @@ public interface SpendingControlBotService {
     List<Spending> findAllSpendingOfTheCurrentMonth();
     List<Spending> findAllSpendingOfTheCurrentDay();
     List<Spending> findAllSpendingOfTheDay(int day, int month, int year);
-    List<Earning> findAllEarning();
-    List<Earning> findAllEarningOfTheYear(int year);
-    List<Earning> findAllEarningOfTheCurrentYear();
-    List<Earning> findAllEarningOfTheMonth(int monthNumber, int year);
-    List<Earning> findAllEarningOfTheCurrentMonth();
+    List<Earning> findAllEarning(long chatId);
+    List<Earning> findAllEarningOfTheYear(int year, long chatId);
+    List<Earning> findAllEarningOfTheCurrentYear(long chatId);
+    List<Earning> findAllEarningOfTheMonth(int monthNumber, int year, long chatId);
+    List<Earning> findAllEarningOfTheCurrentMonth(long chatId);
     void deleteSpending(long id);
-    void deleteEarning(long id);
+    void deleteEarning(long id, long chatId);
 
 
 

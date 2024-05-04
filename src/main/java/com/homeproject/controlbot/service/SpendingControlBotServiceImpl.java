@@ -6,6 +6,7 @@ import com.homeproject.controlbot.entity.AutomatedMessage;
 import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Earning;
 import com.homeproject.controlbot.entity.Spending;
+import com.homeproject.controlbot.enums.Marker;
 import com.homeproject.controlbot.enums.TypeOfEarning;
 import com.homeproject.controlbot.repository.AutomatedMessageRepository;
 import com.homeproject.controlbot.repository.BotUserRepository;
@@ -64,6 +65,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     private int earningIndicator;
     private int deleteEarningMarker;
     private Long currentId;
+    private Marker marker;
     final private BotConfig botConfig;
     final String ERROR_TEXT = "The error occurred: ";
     static final String HELP_TEXT = "This bot is created to calculate, to check and to verify your spendings and earnings \n\n" +
@@ -122,23 +124,32 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                 } else {
                     switch (receivedMessageText) {
                         case "/start":
+                            marker = Marker.NONE;
                             log.info("Command /start was called by " + firstNameOfTheUser);
                             startCommandReceived(chatId, firstNameOfTheUser);
                             registerBotUser(update);
                             break;
                         case "/setearning":
+                            log.info("Command /setearning was called by " + firstNameOfTheUser);
+                            marker = Marker.NONE;
                             setEarningProcess(chatId);
                             break;
                         case "/setearningbydate":
+                            log.info("Command /setearningbydate was called by " + firstNameOfTheUser);
+                            marker = Marker.NONE;
                             setEarningByDateProcess(chatId);
                             break;
                         case "/settodayspending":
+                            marker = Marker.NONE;
                             break;
                         case "/setspending":
+                            marker = Marker.NONE;
                             break;
                         case "/findSpending":
+                            marker = Marker.NONE;
                             break;
                         case "/findearning":
+                            marker = Marker.NONE;
                             List<List<String>> allTheButtons = List.of(List.of("All earnings"),
                                     List.of("Earnings of this year", "Earnings of the year ..."),
                                     List.of("Earnings of this month", "Earnings of the month ..."),
@@ -148,67 +159,141 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         case "/deletespending":
                             break;
                         case "/deleteearning":
-                            deleteEarningMarker = 1;
+                            marker = Marker.DELETE_EARNING;
                             sendMessage(chatId, "What is the ID of the earning you want to delete?");
                             break;
                         case "/data":
+                            marker = Marker.NONE;
                             sendMessage(chatId, getBotUserInformation(receivedMessage).toString());
                             break;
                         case "/deletedata":
+                            marker = Marker.NONE;
                             deleteBotUserInformation(update);
                             break;
                         case "/help":
+                            marker = Marker.NONE;
                             sendMessage(chatId, HELP_TEXT);
                             break;
                         case "/register":
+                            marker = Marker.NONE;
                             registerBotUser(update);
                             break;
                         default:
+                            marker = Marker.NONE;
                             sendMessage(chatId, "Sorry, the command was not recognized");
                             break;
                     }
                 }
             } else {
-                String idPattern = "\\d+";
-                if (deleteEarningMarker == 1 && Pattern.matches(idPattern, receivedMessageText)){
-                    currentId = Long.parseLong(receivedMessageText);
-                    deleteEarning(currentId);
-                } else if(deleteEarningMarker == 1 && !Pattern.matches(idPattern, receivedMessageText)) {
-                    deleteEarningMarker = 0;
-                    currentId = null;
-                }
-                String dataPattern = "\\d{2}-\\d{2}-\\d{4}";
-                if (Pattern.matches(dataPattern, receivedMessageText) && earningIndicator == 1){
-                    earningDate = receivedMessageText;
-                    setEarningProcess(chatId);
-                } else if (earningIndicator ==1 && !Pattern.matches(dataPattern, receivedMessageText)) {
-                    sendMessage(chatId, "The provided date has wrong format. You can try again.");
-                    earningDate = null;
-                    earningIndicator = 0;
-                }
-                if (typeOfEarning != null) {
-                    String numberPattern = "^\\d*\\.?\\d+$";
-                    if (Pattern.matches(numberPattern, receivedMessageText) && earningIndicator ==1) {
-                        log.info("input text is: " + receivedMessageText);
-                        earnedSum = new BigDecimal(receivedMessageText);
-                        log.info("sum is: " + earnedSum);
-                        if (earningDate == null){
-                        setEarning(chatId, earnedSum);
-                        } else{
-                            SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-                            try {
-                                setEarningByDate(chatId, earnedSum, new Timestamp((dateFormat.parse(earningDate).getTime())));
-                            } catch (ParseException e) {
-                                log.error("An error occurred with parsing string to date: " + e.getMessage());
+                switch (marker) {
+                    case EARNING_DATE_IDENTIFICATOR:
+                        log.info("EARNING_DATE_IDENTIFICATOR switch was reached");
+                        String dataPattern = "\\d{2}-\\d{2}-\\d{4}";
+                        if (Pattern.matches(dataPattern, receivedMessageText)) {
+                            log.info("EARNING_DATE_IDENTIFICATOR switch was reached and pattern matches");
+                            earningDate = receivedMessageText;
+                            setEarningProcess(chatId);
+//                            marker = Marker.SET_EARNING;
+                        } else {
+                            log.info("EARNING_DATE_IDENTIFICATOR switch was reached and pattern wasn't a match");
+                            sendMessage(chatId, "The provided date has wrong format. You can try again by pressing /start.");
+                            earningDate = null;
+//                            marker = Marker.SET_EARNING;
+                        }
+                        break;
+                    case SET_SPENDING:
+                        break;
+                    case SET_EARNING:
+                        log.info("SET_EARNING switch was reached");
+                        if (typeOfEarning != null) {
+                            String numberPattern = "^\\d*\\.?\\d+$";
+                            log.info("SET_EARNING switch was reached & typeOfEarning != null");
+                            if (Pattern.matches(numberPattern, receivedMessageText)) {
+                                log.info("EARNING_DATE_IDENTIFICATOR switch was reached and pattern was a match");
+                                log.info("input text is: " + receivedMessageText);
+                                earnedSum = new BigDecimal(receivedMessageText);
+                                log.info("sum is: " + earnedSum);
+                                if (earningDate == null) {
+                                    setEarning(chatId, earnedSum);
+                                } else {
+                                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+                                    try {
+                                        setEarningByDate(chatId, earnedSum, new Timestamp((dateFormat.parse(earningDate).getTime())));
+                                    } catch (ParseException e) {
+                                        log.error("An error occurred with parsing string to date: " + e.getMessage());
+                                    }
+                                }
+                            } else {
+                                earnedSum = null;
+                                typeOfEarning = null;
+                                log.error("The error occurred with earnedSum - format parsing.");
+                                sendMessage(chatId, "Wrong format of the earned sum. You can try again pressing /start");
                             }
                         }
-                    } else {
-                        earnedSum = null;
-                        typeOfEarning = null;
-                        log.error("The error occurred with earnedSum - format parsing.");
-                        sendMessage(chatId, "Wrong format of the earned sum. You can try again pressing");
-                    }
+                        break;
+                    case DELETE_EARNING:
+                        log.info("Received info: " + receivedMessageText);
+                        String idPattern = "^\\d+$";
+                        if (Pattern.matches(idPattern, receivedMessageText)) {
+                            log.info("Deleting id pattern has been approved: " + receivedMessageText);
+                            currentId = Long.parseLong(receivedMessageText);
+                            log.info("After parcing id: " + currentId);
+                            deleteEarning(currentId, chatId);
+                        } else {
+                            marker = Marker.NONE;
+                            currentId = null;
+                        }
+                        break;
+                    default:
+                        sendMessage(chatId, "Cammand was not correct");
+                        break;
                 }
+
+//                log.info("Received info: " + receivedMessageText);
+//                String idPattern = "^\\d+$";
+//                if (deleteEarningMarker == 1 && Pattern.matches(idPattern, receivedMessageText)) {
+//                    log.info("Deleting id pattern has been approved: " + receivedMessageText);
+//                    currentId = Long.parseLong(receivedMessageText);
+//                    log.info("After parcing id: " + currentId);
+//                    deleteEarning(currentId, chatId);
+//                } else if (deleteEarningMarker == 1 && !Pattern.matches(idPattern, receivedMessageText)) {
+//                    deleteEarningMarker = 0;
+//                    currentId = null;
+//                }
+//                String dataPattern = "\\d{2}-\\d{2}-\\d{4}";
+//                if (Pattern.matches(dataPattern, receivedMessageText) && earningIndicator == 1){
+//                    earningDate = receivedMessageText;
+//                    setEarningProcess(chatId);
+//                } else if (earningIndicator ==1 && !Pattern.matches(dataPattern, receivedMessageText)) {
+//                    sendMessage(chatId, "The provided date has wrong format. You can try again.");
+//                    earningDate = null;
+//                    earningIndicator = 0;
+//                }
+
+
+//                if (typeOfEarning != null) {
+//                    String numberPattern = "^\\d*\\.?\\d+$";
+//                    if (Pattern.matches(numberPattern, receivedMessageText) && earningIndicator ==1) {
+//                        log.info("input text is: " + receivedMessageText);
+//                        earnedSum = new BigDecimal(receivedMessageText);
+//                        log.info("sum is: " + earnedSum);
+//                        if (earningDate == null){
+//                        setEarning(chatId, earnedSum);
+//                        } else{
+//                            SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+//                            try {
+//                                setEarningByDate(chatId, earnedSum, new Timestamp((dateFormat.parse(earningDate).getTime())));
+//                            } catch (ParseException e) {
+//                                log.error("An error occurred with parsing string to date: " + e.getMessage());
+//                            }
+//                        }
+//                    } else {
+//                        earnedSum = null;
+//                        typeOfEarning = null;
+//                        log.error("The error occurred with earnedSum - format parsing.");
+//                        sendMessage(chatId, "Wrong format of the earned sum. You can try again pressing");
+//                    }
+//                }
 
             }
 
@@ -257,7 +342,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                     break;
                 case "All earnings_BUTTON":
                     log.info("All earnings_BUTTON" + chatId);
-                    sendMessage(chatId,findAllEarning().toString());
+                    sendMessage(chatId, findAllEarning(chatId).toString());
                     break;
                 case "Earnings of this year_BUTTON":
                     break;
@@ -272,7 +357,9 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                 default:
                     break;
             }
-            sendEditedMessage(chatId, (int) messageId, answerText);
+            if (!answerText.isEmpty()) {
+                sendEditedMessage(chatId, (int) messageId, answerText);
+            }
         }
 
     }
@@ -329,7 +416,8 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     public void setEarningProcess(long chatId) {
         log.info("setEarningProcess called with chatId " + chatId);
-        earningIndicator = 1;
+//        earningIndicator = 1;
+//        marker = Marker.SET_EARNING;
         if (typeOfEarning == null) {
             log.info("setEarningProcess called and typeOfEarning == null, with chatId " + chatId);
             List<List<String>> earningTypeList = List.of(Arrays.stream(TypeOfEarning.values()).map(v -> v.toString()).toList());
@@ -337,14 +425,15 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         } else {
             log.info("setEarningProcess called and typeOfEarning != null, with chatId " + chatId);
             if (earnedSum == null) {
-                log.info("setEarningProcess called and sum ==0 " + chatId);
+                log.info("setEarningProcess called and sum == 0 " + chatId + ". Marker is: " + marker);
+                marker = Marker.SET_EARNING;
                 sendMessage(chatId, "What is the earned sum of money:");
             }
         }
     }
 
     @Override
-    public void setEarningByDate(long chatId, BigDecimal sum, Timestamp date){
+    public void setEarningByDate(long chatId, BigDecimal sum, Timestamp date) {
         log.info("setEarningByDate has been started");
         Timestamp currentTime = new Timestamp(System.currentTimeMillis());
         Earning earning = new Earning();
@@ -358,13 +447,17 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         if (!earningRepository.findById(earning.getEarningId()).isEmpty()) {
             sendMessage(chatId, "The provided data about your recent earning has been successfully saved.");
             earnedSum = null;
-            earningIndicator = 0;
+//            earningIndicator = 0;
+            marker = Marker.NONE;
             earningDate = null;
         }
     }
 
-    public void setEarningByDateProcess(long chatId){
-        earningIndicator = 1;
+    public void setEarningByDateProcess(long chatId) {
+        log.info("setEarningByDateProcess method was called by " + chatId);
+//        earningIndicator = 1;
+//        marker = Marker.SET_EARNING;
+        marker = Marker.EARNING_DATE_IDENTIFICATOR;
         sendMessage(chatId, "Enter the date of this earning in format (DD-MM-YYYY):");
     }
 
@@ -373,6 +466,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     public void setSpending() {
 
     }
+
     @Override
     public void setSpendingOfTheDay(int day, int month, int year) {
 
@@ -415,49 +509,70 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
     @Override
-    public List<Earning> findAllEarning() {
-        List<Earning> earningList = earningRepository.findAll().stream().sorted(new EarningDateComparator()).toList();
+    public List<Earning> findAllEarning(long chatId) {
+        log.info("findAllEarning method was called by " + chatId);
+        List<Earning> earningList = earningRepository.findAll().stream()
+                .filter(earn -> earn.getBotUser().getId() == chatId)
+                .sorted(new EarningDateComparator()).toList();
         return earningList;
     }
 
     //    @Override
-    public List<Earning> findAllEarningOfTheYear(int year) {
-        List<Earning> earningList = earningRepository.findAll().stream().filter(x -> (int)x.getEarnedAt().toLocalDateTime().getYear() == year).toList();
+    public List<Earning> findAllEarningOfTheYear(int year, long chatId) {
+        log.info("findAllEarningOfTheYear method was called by " + chatId);
+        List<Earning> earningList = findAllEarning(chatId).stream()
+                .filter(x -> (int) x.getEarnedAt().toLocalDateTime().getYear() == year)
+                .toList();
         return earningList;
     }
 
     @Override
-    public List<Earning> findAllEarningOfTheCurrentYear() {
-        return findAllEarningOfTheYear(LocalDate.now().getYear());
+    public List<Earning> findAllEarningOfTheCurrentYear(long chatId) {
+        log.info("findAllEarningOfTheCurrentYear method was called by " + chatId);
+        return findAllEarningOfTheYear(LocalDate.now().getYear(), chatId);
     }
 
     @Override
-    public List<Earning> findAllEarningOfTheMonth(int monthNumber, int year) {
-        List<Earning> earningList = earningRepository.findAll().stream().filter(x -> ((int)x.getEarnedAt().toLocalDateTime().getYear() == year)).
-                filter(y -> (y.getEarnedAt().toLocalDateTime().getMonth().getValue() == monthNumber)).
-                toList();
+    public List<Earning> findAllEarningOfTheMonth(int monthNumber, int year, long chatId) {
+        log.info("findAllEarningOfTheMonth method was called by " + chatId);
+        List<Earning> earningList = findAllEarning(chatId).stream()
+                .filter(x -> ((int) x.getEarnedAt().toLocalDateTime().getYear() == year))
+                .filter(y -> (y.getEarnedAt().toLocalDateTime().getMonth().getValue() == monthNumber))
+                .toList();
         return earningList;
     }
 
     @Override
-    public List<Earning> findAllEarningOfTheCurrentMonth() {
-        return findAllEarningOfTheMonth(LocalDate.now().getMonth().getValue(), LocalDate.now().getYear());
+    public List<Earning> findAllEarningOfTheCurrentMonth(long chatId) {
+        log.info("findAllEarningOfTheCurrentMonth method was called by " + chatId);
+        return findAllEarningOfTheMonth(LocalDate.now().getMonth().getValue(), LocalDate.now().getYear(), chatId);
     }
 
     @Override
     public void deleteSpending(long id) {
+//        log.info("findAllEarningOfTheCurrentMonth method was called by " + chatId);
         spendingRepository.deleteById(id);
     }
 
     @Override
-    public void deleteEarning(long id) {
-        long chatId = earningRepository.getReferenceById(id).getBotUser().getId();
-        earningRepository.deleteById(id);
-        deleteEarningMarker = 0;
-        if(earningRepository.findById(id).orElse(null) == null) {
-            currentId = null;
-            sendMessage(chatId, "Earning data with the id: " + id + " has been successfully deleted");
+    public void deleteEarning(long id, long chatIdCheck) {
+        log.info("deleteEarning method was called by " + chatIdCheck + ". Deleting of the earning by id: " + id);
+        Earning earningToDelete = earningRepository.findById(id).orElse(null);
+        long chatId = 0;
+        if (earningToDelete != null) {
+            chatId = earningToDelete.getBotUser().getId();
         }
+        if (chatId == chatIdCheck) {
+            earningRepository.deleteById(id);
+//            deleteEarningMarker = 0;
+            marker = Marker.NONE;
+            if (earningRepository.findById(id).orElse(null) == null) {
+                currentId = null;
+                sendMessage(chatId, "Earning data with the id: " + id + " has been successfully deleted");
+            }
+        }
+        marker = Marker.NONE;
+//        deleteEarningMarker = 0;
     }
 
     @Override
