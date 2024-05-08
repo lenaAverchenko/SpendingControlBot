@@ -11,7 +11,9 @@ import java.sql.Timestamp;
 @Data
 public class Earning {
         @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
+//        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        @GeneratedValue(strategy = GenerationType.AUTO)
+
         private long earningId;
 
         @Enumerated(EnumType.STRING)

@@ -14,7 +14,9 @@ import java.sql.Timestamp;
 @Data
 public class Spending {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+//    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
+
     private long spendingId;
 
     @Enumerated(EnumType.STRING)
@@ -29,4 +31,16 @@ public class Spending {
     private Timestamp spentAt;
     private Timestamp registeredAt;
     private BigDecimal spendingSum;
+
+    @Override
+    public String toString() {
+        return "\n\nYour Spending information: " +
+                "\nSpending Id: " + spendingId +
+                "\nType of purchase: " + typeOfPurchase +
+                "\nShop name: " + shopName +
+                "\nDescription: " + description +
+                "\nSpent at: " + spentAt +
+                "\nRegistered at: " + registeredAt +
+                "\nSpent sum=" + spendingSum + "\n";
+    }
 }

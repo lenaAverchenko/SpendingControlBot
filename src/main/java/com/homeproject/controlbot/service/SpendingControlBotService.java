@@ -21,19 +21,19 @@ public interface SpendingControlBotService {
     void setEarning(long chatId, BigDecimal sum);
     void setEarningByDate(long chatId, BigDecimal sum, Timestamp date);
 
-    List<Spending> findAllSpending();
-    List<Spending> findAllSpendingOfTheYear(int year);
-    List<Spending> findAllSpendingOfTheCurrentYear();
-    List<Spending> findAllSpendingOfTheMonth(int monthNumber, int year);
-    List<Spending> findAllSpendingOfTheCurrentMonth();
-    List<Spending> findAllSpendingOfTheCurrentDay();
-    List<Spending> findAllSpendingOfTheDay(int day, int month, int year);
+    List<Spending> findAllSpending(long chatId);
+    List<Spending> findAllSpendingOfTheYear(int year, long chatId);
+    List<Spending> findAllSpendingOfTheCurrentYear(long chatId);
+    List<Spending> findAllSpendingOfTheMonth(int monthNumber, int year, long chatId);
+    List<Spending> findAllSpendingOfTheCurrentMonth(long chatId);
+    List<Spending> findAllSpendingOfTheCurrentDay(long chatId);
+    List<Spending> findAllSpendingOfTheDay(int day, int month, int year, long chatId);
     List<Earning> findAllEarning(long chatId);
     List<Earning> findAllEarningOfTheYear(int year, long chatId);
     List<Earning> findAllEarningOfTheCurrentYear(long chatId);
     List<Earning> findAllEarningOfTheMonth(int monthNumber, int year, long chatId);
     List<Earning> findAllEarningOfTheCurrentMonth(long chatId);
-    void deleteSpending(long id);
+    void deleteSpending(long id, long chatIdCheck);
     void deleteEarning(long id, long chatId);
 
 
