@@ -11,14 +11,14 @@ import java.sql.Timestamp;
 @Data
 public class Earning {
         @Id
-        @GeneratedValue(strategy = GenerationType.AUTO)
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
         private long earningId;
 
         @Enumerated(EnumType.STRING)
         private TypeOfEarning typeOfEarning;
 
 //        @ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
-@ManyToOne
+        @ManyToOne
         @JoinColumn(name = "bot_user_id", referencedColumnName = "id")
         private BotUser botUser;
         private Timestamp earnedAt;
@@ -27,7 +27,7 @@ public class Earning {
 
         @Override
         public String toString() {
-                return "Earning: \n" +
+                return "\n\nEarning: \n" +
                         "Earning id: " + earningId + "\n" +
                         "Type of earning: " + typeOfEarning + "\n" +
                         "User name: " + botUser.getUserName() + "\n" +

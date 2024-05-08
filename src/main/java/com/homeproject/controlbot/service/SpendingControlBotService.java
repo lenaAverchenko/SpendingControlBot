@@ -16,9 +16,9 @@ public interface SpendingControlBotService {
 
     BotUser getBotUserInformation(Message message);
     String deleteBotUserInformation(Update update);
-    void setSpending();
+    public void setSpending(long chatId, BigDecimal spentSum);
+    public void setSpendingByDate(long chatId, BigDecimal spentSum, Timestamp date);
     void setEarning(long chatId, BigDecimal sum);
-    void setSpendingOfTheDay(int day, int month, int year);
     void setEarningByDate(long chatId, BigDecimal sum, Timestamp date);
 
     List<Spending> findAllSpending();

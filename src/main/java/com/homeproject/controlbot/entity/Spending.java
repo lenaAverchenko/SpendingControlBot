@@ -14,7 +14,7 @@ import java.sql.Timestamp;
 @Data
 public class Spending {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long spendingId;
 
     @Enumerated(EnumType.STRING)
@@ -22,7 +22,8 @@ public class Spending {
     private String shopName;
     private String description;
 
-    @ManyToOne(cascade = CascadeType.PERSIST)
+//    @ManyToOne(cascade = CascadeType.PERSIST)
+    @ManyToOne
     @JoinColumn(name = "bot_user_id", referencedColumnName = "id")
     private BotUser botUser;
     private Timestamp spentAt;
