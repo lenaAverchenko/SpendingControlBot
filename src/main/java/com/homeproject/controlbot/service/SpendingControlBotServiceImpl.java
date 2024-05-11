@@ -68,6 +68,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     private String earningDate;
     private BigDecimal spentSum;
     private String spendingDate;
+    private String startDateProfit;
     private String shopName;
     private String descriptionOfPurchase;
     private Long currentId;
@@ -86,12 +87,12 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             "Type /setspending to input information about another spending you made and want to store\n\n" +
             "Type /findspending to see the information about your previous spending\n\n" +
             "Type /findearning to see the information about your previous earning\n\n" +
+            "Type /calculateprofit to calculate profit for a particular period\n\n" +
             "Type /deletespending to delete the wrong spending from database\n\n" +
             "Type /deleteearning to delete the wrong earning from database\n\n" +
             "Type /data to get info about the stored data from your account\n\n" +
             "Type /deletedata to delete stored info about your account\n\n" +
             "Type /help to see this message again.";
-
     private SpendingControlBotServiceImpl(BotConfig botConfig) {
         this.botConfig = botConfig;
         List<BotCommand> listOfCommands = new ArrayList<>();
@@ -102,6 +103,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         listOfCommands.add(new BotCommand("/setspending", "set information about some day's spending"));
         listOfCommands.add(new BotCommand("/findspending", "find spending according to your preferences"));
         listOfCommands.add(new BotCommand("/findearning", "find earning according to your preferences"));
+        listOfCommands.add(new BotCommand("/calculateprofit", "to calculate profit for the particular period of time"));
         listOfCommands.add(new BotCommand("/deletespending", "delete previously added spending"));
         listOfCommands.add(new BotCommand("/deleteearning", "delete previously added earning"));
         listOfCommands.add(new BotCommand("/data", "get stored information about my account"));
@@ -155,6 +157,13 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         case "/setspending":
                             marker = Marker.NONE;
                             setSpendingByDateProcess(chatId);
+                            break;
+                        case "/calculateprofit":
+                            List<List<String>> listOfOptions = List.of(
+                                    List.of("Profit of the current month", "Profit of the optional month"),
+                                    List.of("Profit of the current year", "Profit of the optional year"),
+                                    List.of("Profit for selected period"));
+                            sendMessageWithButtons(chatId, "Please, choose the period to calculate your profit:", listOfOptions);
                             break;
                         case "/findspending":
                             marker = Marker.NONE;
@@ -473,6 +482,73 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                                     "It must be 1-31. You can try again by pressing /start and choosing one of the options.");
                         }
                         break;
+                    case START_DATE_PROFIT:
+                        log.info("START_DATE_PROFIT switch was reached");
+                        String startDatePattern = "\\d{2}-\\d{2}-\\d{4}";
+                        if (Pattern.matches(startDatePattern, receivedMessageText)) {
+                            log.info("START_DATE_PROFIT switch was reached and pattern matches");
+                            startDateProfit = receivedMessageText;
+                            marker = Marker.END_DATE_PROFIT;
+                            sendMessage(chatId, "Please, enter the initial date in format DD-MM-YYYY to start the calculating process: ");
+
+                        } else {
+                            log.info("START_DATE_PROFIT switch was reached and pattern wasn't a match");
+                            sendMessage(chatId, "The provided date has wrong format. You can try again by pressing /start.");
+                            startDateProfit = null;
+                            marker = Marker.NONE;
+                        }
+                        break;
+                    case END_DATE_PROFIT:
+                        log.info("END_DATE_PROFIT switch was reached");
+                        String endDatePattern = "\\d{2}-\\d{2}-\\d{4}";
+                        if (Pattern.matches(endDatePattern, receivedMessageText)) {
+                            log.info("END_DATE_PROFIT switch was reached and pattern matches");
+                            marker = Marker.NONE;
+                            calculateProfitOfTheSelectedPeriod(chatId, startDateProfit, receivedMessageText);
+                        } else {
+                            log.info("START_DATE_PROFIT switch was reached and pattern wasn't a match");
+                            sendMessage(chatId, "The provided date has wrong format. You can try again by pressing /start.");
+                            startDateProfit = null;
+                            marker = Marker.NONE;
+                        }
+                        break;
+                    case MONTH_PROFIT:
+                        log.info("MONTH_PROFIT marker. Received info: " + receivedMessageText);
+                        String monthProfitPattern = "^([1-9]|1[0-2])$";
+                        if (Pattern.matches(monthProfitPattern, receivedMessageText)) {
+                            marker = Marker.YEAR_PROFIT;
+                            monthIndicator = Integer.parseInt(receivedMessageText);
+                            sendMessage(chatId,
+                                    "Please, enter the year to calculate profit: ");
+                        } else {
+                            marker = Marker.NONE;
+                            log.info("Pattern doesn't match the month: " + receivedMessageText + ". For the user: " + currentId);
+                            sendMessage(chatId, "The format of the month is not correct. " +
+                                    "It must be 1-12. You can try again by pressing /start and choosing one of the options.");
+                        }
+                        break;
+                    case YEAR_PROFIT:
+                        log.info("Received info: " + receivedMessageText);
+                        String yearProfitPattern = "^\\d{4}$";
+                        if (Pattern.matches(yearProfitPattern, receivedMessageText)) {
+                            int yearIndicator = Integer.parseInt(receivedMessageText);
+                            if (monthIndicator == 0) {
+                                log.info("YEAR_PROFIT & monthIndicator == 0. Received message " + receivedMessageText);
+                                calculateProfitOfTheYear(chatId, yearIndicator);
+                                yearIndicator = 0;
+                            } else if (monthIndicator != 0) {
+                                log.info("YEAR_PROFIT & monthIndicator != 0. Received message " + receivedMessageText);
+                                calculateProfitOfTheMonth(chatId,yearIndicator,monthIndicator);
+                                monthIndicator = 0;
+                            }
+                            marker = Marker.NONE;
+                        } else {
+                            marker = Marker.NONE;
+                            log.info("Pattern doesn't match the year: " + receivedMessageText + ". For the user: " + currentId);
+                            sendMessage(chatId, "The format of the year is not correct. " +
+                                    "It must be XXXX. You can try again by pressing /start and choosing one of the options.");
+                        }
+                        break;
                     default:
                         sendMessage(chatId, "Command was not correct");
                         break;
@@ -655,6 +731,24 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                     marker = Marker.SOME_DAY_SPENDING;
                     sendMessage(chatId, "Please, enter the correct day from 1-31: ");
                     break;
+                case "Profit of the current month_BUTTON":
+                    calculateProfitOfTheCurrentMonth(chatId);
+                    break;
+                case "Profit of the optional month_BUTTON":
+                    marker = Marker.MONTH_PROFIT;
+                    sendMessage(chatId,"Please, enter the month, when you want to calculate profit: ");
+                    break;
+                case "Profit of the current year_BUTTON":
+                    calculateProfitOfTheCurrentYear(chatId);
+                    break;
+                case "Profit of the optional year_BUTTON":
+                    marker = Marker.YEAR_PROFIT;
+                    sendMessage(chatId,"Please, enter the year, when you want to calculate profit: ");
+                    break;
+                case "Profit for selected period_BUTTON":
+                    marker = Marker.START_DATE_PROFIT;
+                    sendMessage(chatId,"Please, enter the initial date in format DD-MM-YYYY to start the calculating process: ");
+                    break;
                 default:
                     break;
             }
@@ -705,6 +799,100 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         log.info("deleteBotUserInformation was called");
         sendMessageWithButtons(update.getMessage().getChatId(), "Do you really want to delete all your data from database?", List.of(List.of("YES_DELETE", "NO_DELETE")));
         return null;
+    }
+
+    public BigDecimal calculateProfit(long chatId, BigDecimal earnedSum, BigDecimal spentSum){
+        BigDecimal resultedSum = earnedSum.subtract(spentSum);
+        if(resultedSum.signum() < 0){
+            sendMessage(chatId, "You don't have any profit for that period. " +
+                    "You have spent more than you've earned. The difference is " + resultedSum);
+        } else{
+        sendMessage(chatId, "Your profit for that period is: " + resultedSum);
+        }
+        return resultedSum;
+    }
+    public BigDecimal calculateProfitOfTheYear(long chatId, int year){
+        log.info("calculateProfitOfTheYear started");
+        BigDecimal allSpentMoney = spendingRepository.findAll().stream()
+                .filter(sp -> sp.getBotUser().getId() == chatId)
+                .filter(sp -> sp.getSpentAt().toLocalDateTime().getYear() == year)
+                .map(Spending::getSpendingSum)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal allEarnedMoney = earningRepository.findAll().stream()
+                .filter(e -> e.getBotUser().getId() == chatId)
+                .filter(e -> e.getEarnedAt().toLocalDateTime().getYear() == year)
+                .map(Earning::getEarningSum)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return calculateProfit(chatId, allEarnedMoney, allSpentMoney);
+    }
+    public BigDecimal calculateProfitOfTheCurrentYear(long chatId){
+        return calculateProfitOfTheYear(chatId, LocalDate.now().getYear());
+    }
+    public BigDecimal calculateProfitOfTheMonth(long chatId, int year, int month){
+        BigDecimal allSpentMoney = spendingRepository.findAll().stream()
+                .filter(sp -> sp.getBotUser().getId() == chatId)
+                .filter(sp -> sp.getSpentAt().toLocalDateTime().getYear() == year)
+                .filter(sp -> sp.getSpentAt().toLocalDateTime().getMonth().getValue() == month)
+                .map(Spending::getSpendingSum)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal allEarnedMoney = earningRepository.findAll().stream()
+                .filter(e -> e.getBotUser().getId() == chatId)
+                .filter(e -> e.getEarnedAt().toLocalDateTime().getYear() == year)
+                .filter(e -> e.getEarnedAt().toLocalDateTime().getMonth().getValue() == month)
+                .map(Earning::getEarningSum)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return calculateProfit(chatId, allEarnedMoney, allSpentMoney);
+    }
+    public BigDecimal calculateProfitOfTheCurrentMonth(long chatId){
+        LocalDate currentDate = LocalDate.now();
+        return calculateProfitOfTheMonth(chatId, currentDate.getYear(), currentDate.getMonth().getValue());
+    }
+    public BigDecimal calculateProfitOfTheSelectedPeriod(long chatId, String startDate, String endDate){
+        BigDecimal resultedSum = null;
+        String datePattern = "\\d{2}-\\d{2}-\\d{4}";
+        String pattern = "dd-MM-yyyy";
+        SimpleDateFormat dateFormat = new SimpleDateFormat(pattern);
+        Timestamp start = null;
+        Timestamp end = null;
+        if (Pattern.matches(datePattern, startDate) && Pattern.matches(datePattern, endDate)){
+            try {
+                start = new Timestamp(dateFormat.parse(startDate).getTime());
+                end = new Timestamp(dateFormat.parse(endDate).getTime());
+            } catch (ParseException e) {
+                throw new RuntimeException(e);
+            }
+            if (start.after(end)){
+                Timestamp temporaryStorage = start;
+                start = end;
+                end = temporaryStorage;
+            }
+            Timestamp finalEnd = end;
+            Timestamp finalStart = start;
+            BigDecimal allSpentMoney = spendingRepository.findAll().stream()
+                    .filter(sp -> sp.getBotUser().getId() == chatId)
+                    .filter(sp -> sp.getSpentAt().before(finalEnd))
+                    .filter(sp -> sp.getSpentAt().after(finalStart))
+                    .map(Spending::getSpendingSum)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal allEarnedMoney = earningRepository.findAll().stream()
+                    .filter(e -> e.getBotUser().getId() == chatId)
+                    .filter(e -> e.getEarnedAt().before(finalEnd))
+                    .filter(e -> e.getEarnedAt().after(finalStart))
+                    .map(Earning::getEarningSum)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            resultedSum = calculateProfit(chatId, allEarnedMoney, allSpentMoney);
+        }else{
+            sendMessage(chatId,"Provided date for calculations have wrong format. Please, check both of them, " +
+                    "and make sure they are provided in format: DD-MM-YYYY. " +
+                    "You can start again by pressing /calculateprofit");
+        }
+        return resultedSum;
     }
 
     @Override
@@ -1022,7 +1210,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     private void startCommandReceived(long chatId, String name) {
         String answer = EmojiParser.parseToUnicode("Hi, " + name + "!" + ":blush:" + " Let's start working!" + ":computer:" + " What are we going to do right now?" + ":arrow_down:");
         List<String> buttonNames = List.of("/start", "/setearning", "/setearningbydate", "/settodayspending", "/setspending",
-                "/findspending", "/findearning", "/deletespending", "/deleteearning", "/data", "/deletedata", "/help");
+                "/findspending", "/findearning", "/calculateprofit", "/deletespending", "/deleteearning", "/data", "/deletedata", "/help");
         sendMessageWithKeyboard(chatId, answer, buttonNames);
         log.info("Replied to user " + name);
     }
