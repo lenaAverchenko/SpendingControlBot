@@ -1,7 +1,5 @@
 package com.homeproject.controlbot.service;
 
-import com.homeproject.controlbot.comparator.EarningDateComparator;
-import com.homeproject.controlbot.comparator.SpendingDateComparator;
 import com.homeproject.controlbot.configuration.BotConfig;
 import com.homeproject.controlbot.entity.AutomatedMessage;
 import com.homeproject.controlbot.entity.BotUser;
@@ -10,6 +8,7 @@ import com.homeproject.controlbot.entity.Spending;
 import com.homeproject.controlbot.enums.Marker;
 import com.homeproject.controlbot.enums.TypeOfEarning;
 import com.homeproject.controlbot.enums.TypeOfPurchase;
+import com.homeproject.controlbot.helper.ButtonAndListCreator;
 import com.homeproject.controlbot.repository.AutomatedMessageRepository;
 import com.homeproject.controlbot.repository.BotUserRepository;
 import com.homeproject.controlbot.repository.EarningRepository;
@@ -29,10 +28,6 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.math.BigDecimal;
@@ -55,19 +50,19 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     @Autowired
     private BotUserRepository botUserRepository;
-
     @Autowired
     private EarningRepository earningRepository;
     @Autowired
     private EarningService earningService;
-
     @Autowired
     private SpendingRepository spendingRepository;
+    @Autowired
+    private SpendingService spendingService;
     @Autowired
     private AutomatedMessageRepository automatedMessageRepository;
     private TypeOfEarning typeOfEarning;
     private TypeOfPurchase typeOfPurchase;
-
+    private ButtonAndListCreator buttonAndListCreator = new ButtonAndListCreator();
     private BigDecimal earnedSum;
     private String earningDate;
     private BigDecimal spentSum;
@@ -79,8 +74,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     private Marker marker;
     private int monthIndicator;
     private int dayIndicator;
-    @Autowired
-//    private EarningServiceImpl earningService;
 
     final private BotConfig botConfig;
     final String ERROR_TEXT = "The error occurred: ";
@@ -167,21 +160,21 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                             setSpendingByDateProcess(chatId);
                             break;
                         case "/calculateprofit":
-                            List<List<String>> listOfOptions = createListOfLists(List.of("Profit of the current month",
+                            List<List<String>> listOfOptions = buttonAndListCreator.createListOfLists(List.of("Profit of the current month",
                                     "Profit of the optional month", "Profit of the current year", "Profit of the optional year",
                                     "Profit for selected period"));
                             sendMessageWithButtons(chatId, "Please, choose the period to calculate your profit:", listOfOptions);
                             break;
                         case "/findspending":
                             marker = Marker.NONE;
-                            List<List<String>> allTheSpendingButtons = createListOfLists(List.of("All info about my spending",
+                            List<List<String>> allTheSpendingButtons = buttonAndListCreator.createListOfLists(List.of("All info about my spending",
                                     "Money spent this year", "Money spent the year ...", "Money spent this month",
                                     "Money spent the month ...", "Money spent today", "Money spent the day ..."));
                             sendMessageWithButtons(chatId, "Pick the search you want to proceed with: ", allTheSpendingButtons);
                             break;
                         case "/findearning":
                             marker = Marker.NONE;
-                            List<List<String>> allTheButtons = createListOfLists(List.of(
+                            List<List<String>> allTheButtons = buttonAndListCreator.createListOfLists(List.of(
                                     "All earnings", "Earnings of this year", "Earnings of the year ...",
                                     "Earnings of this month", "Earnings of the month ...", "Earnings of the day"));
                             sendMessageWithButtons(chatId, "Pick the search you want to proceed with: ", allTheButtons);
@@ -255,17 +248,8 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         }
                         break;
                     case DELETE_EARNING:
-//                        log.info("Received info: " + receivedMessageText);
-                        String idPattern = "^\\d+$";
-                        if (Pattern.matches(idPattern, receivedMessageText)) {
-//                            log.info("Deleting id pattern has been approved: " + receivedMessageText);
-                            currentId = Long.parseLong(receivedMessageText);
-//                            log.info("After parcing id: " + currentId);
-                            deleteEarning(currentId, chatId);
-                        } else {
-                            marker = Marker.NONE;
-                            currentId = null;
-                        }
+                    case DELETE_SPENDING:
+                        deleteEarningOrSpendingIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case SOME_YEAR_EARNINGS:
 //                        log.info("Received info: " + receivedMessageText);
@@ -273,20 +257,21 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         if (Pattern.matches(yearPattern, receivedMessageText)) {
                             int yearIndicator = Integer.parseInt(receivedMessageText);
                             if (monthIndicator == 0 && dayIndicator == 0) {
-//                                log.info("SOME_YEAR_EARNINGS & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
+                                log.info("SOME_YEAR_EARNINGS & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
                                 sendMessage(chatId,
-                                        findAllEarningOfTheYear(yearIndicator, chatId).toString());
+                                        checkAndReturnListIfItIsNotEmpty(chatId,
+                                                earningService.findAllEarningOfTheYear(yearIndicator, chatId)).toString());
 
                             } else if (monthIndicator != 0 && dayIndicator == 0) {
-//                                log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                                sendMessage(chatId,
-                                        findAllEarningOfTheMonth(monthIndicator, yearIndicator, chatId).toString());
+                                log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
+                                sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                        earningService.findAllEarningOfTheMonth(monthIndicator, yearIndicator, chatId)).toString());
                                 monthIndicator = 0;
                             } else if (monthIndicator != 0 && dayIndicator != 0) {
-//                                log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
+                                log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
                                 if (dateMatchesTheMonth(dayIndicator, monthIndicator, yearIndicator)) {
                                     sendMessage(chatId,
-                                            findAllEarningOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId).toString());
+                                            checkAndReturnListIfItIsNotEmpty(chatId, earningService.findAllEarningOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
                                 } else {
                                     sendMessage(chatId, "The date doesn't exist. Please, check the provided information " +
                                             "and try again by pressing /setearningbydate .");
@@ -384,39 +369,26 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         log.info("SPENDING_DATE_IDENTIFICATOR switch was reached");
                         dateIdentifierReceived(chatId, receivedMessageText);
                         break;
-                    case DELETE_SPENDING:
-//                        log.info("Received info: " + receivedMessageText);
-                        String idSpendingPattern = "^\\d+$";
-                        if (Pattern.matches(idSpendingPattern, receivedMessageText)) {
-//                            log.info("Deleting id spending pattern has been approved: " + receivedMessageText);
-                            currentId = Long.parseLong(receivedMessageText);
-//                            log.info("After parcing id: " + currentId);
-                            deleteSpending(currentId, chatId);
-                        } else {
-                            marker = Marker.NONE;
-                            currentId = null;
-                        }
-                        break;
                     case SOME_YEAR_SPENDING:
-//                        log.info("Received info: " + receivedMessageText);
+                        log.info("Received info: " + receivedMessageText);
                         String yearSpendingPattern = "^\\d{4}$";
                         if (Pattern.matches(yearSpendingPattern, receivedMessageText)) {
                             int yearIndicator = Integer.parseInt(receivedMessageText);
                             if (monthIndicator == 0 && dayIndicator == 0) {
-//                                log.info("SOME_YEAR_SPENDING & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                                sendMessage(chatId,
-                                        findAllSpendingOfTheYear(yearIndicator, chatId).toString());
+                                log.info("SOME_YEAR_SPENDING & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
+                                sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                        spendingService.findAllSpendingOfTheYear(yearIndicator, chatId)).toString());
                                 yearIndicator = 0;
                             } else if (monthIndicator != 0 && dayIndicator == 0) {
-//                                log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                                sendMessage(chatId,
-                                        findAllSpendingOfTheMonth(monthIndicator, yearIndicator, chatId).toString());
+                                log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
+                                sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                        spendingService.findAllSpendingOfTheMonth(monthIndicator, yearIndicator, chatId)).toString());
                                 monthIndicator = 0;
                             } else if (monthIndicator != 0 && dayIndicator != 0) {
-//                                log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
+                                log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
                                 if (dateMatchesTheMonth(dayIndicator, monthIndicator, yearIndicator)) {
-                                    sendMessage(chatId,
-                                            findAllSpendingOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId).toString());
+                                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                            spendingService.findAllSpendingOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
                                 } else {
                                     sendMessage(chatId, "The date doesn't exist. Please, check the provided information " +
                                             "and try again by pressing /setspendingbydate .");
@@ -550,183 +522,195 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                     answerText = "You pressed NO button. Access to the Bot is not allowed. Try again";
                     break;
                 case "YES_DELETE_BUTTON":
-//                    log.info("yes delete button pressed");
+                    log.info("yes delete button pressed");
                     botUserRepository.delete(Objects.requireNonNull(botUserRepository.findById(chatId)).orElse(null));
                     answerText = "Data for your account has been deleted.";
-//                    log.info("information about the user is deleted");
+                    log.info("information about the user is deleted");
                     break;
                 case "NO_DELETE_BUTTON":
-//                    log.info("no button pressed");
+                    log.info("no button pressed");
                     answerText = "I won't delete the data for your account. You can press start to continue.";
                     break;
                 case "SALARY_BUTTON":
-//                    log.info("SALARY_BUTTON" + chatId);
+                    log.info("SALARY_BUTTON" + chatId);
                     typeOfEarning = TypeOfEarning.SALARY;
                     setEarningProcess(chatId);
                     break;
                 case "CHILD_SUPPORT_BUTTON":
-//                    log.info("CHILD_SUPPORT_BUTTON" + chatId);
+                    log.info("CHILD_SUPPORT_BUTTON" + chatId);
                     typeOfEarning = TypeOfEarning.CHILD_SUPPORT;
                     setEarningProcess(chatId);
                     break;
                 case "PRISE_BUTTON":
-//                    log.info("PRISE_BUTTON" + chatId);
+                    log.info("PRISE_BUTTON" + chatId);
                     typeOfEarning = TypeOfEarning.PRISE;
                     setEarningProcess(chatId);
                     break;
                 case "GIFT_BUTTON":
-//                    log.info("GIFT_BUTTON" + chatId);
+                    log.info("GIFT_BUTTON" + chatId);
                     typeOfEarning = TypeOfEarning.GIFT;
                     setEarningProcess(chatId);
                     break;
                 case "All earnings_BUTTON":
-//                    log.info("All earnings_BUTTON" + chatId);
-                    sendMessage(chatId, findAllEarning(chatId).toString());
+                    log.info("All earnings_BUTTON" + chatId);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            earningService.findAllEarning(chatId)).toString());
                     break;
                 case "Earnings of this year_BUTTON":
-//                    log.info("Earnings of this year_BUTTON" + chatId);
-                    sendMessage(chatId, findAllEarningOfTheCurrentYear(chatId).toString());
+                    log.info("Earnings of this year_BUTTON" + chatId);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            earningService.findAllEarningOfTheCurrentYear(chatId)).toString());
                     break;
                 case "Earnings of the year ..._BUTTON":
-//                    log.info("Earnings of the year_BUTTON" + chatId);
+                    log.info("Earnings of the year_BUTTON" + chatId);
                     marker = Marker.SOME_YEAR_EARNINGS;
                     sendMessage(chatId, "Please, enter the correct year: ");
                     break;
                 case "Earnings of this month_BUTTON":
-//                    log.info("Earnings of this month_BUTTON" + chatId);
-                    sendMessage(chatId, findAllEarningOfTheCurrentMonth(chatId).toString());
+                    log.info("Earnings of this month_BUTTON" + chatId);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            earningService.findAllEarningOfTheCurrentMonth(chatId)).toString());
                     break;
                 case "Earnings of the month ..._BUTTON":
-//                    log.info("Earnings of the month ..._BUTTON" + chatId);
+                    log.info("Earnings of the month ..._BUTTON" + chatId);
                     marker = Marker.SOME_MONTH_EARNING;
                     sendMessage(chatId, "Please, enter the correct month from 1-12: ");
                     break;
                 case "Earnings of the day_BUTTON":
-//                    log.info("Earnings of the month ..._BUTTON" + chatId);
+                    log.info("Earnings of the month ..._BUTTON" + chatId);
                     marker = Marker.SOME_DAY_EARNING;
                     sendMessage(chatId, "Please, enter the correct day from 1-31: ");
                     break;
                 case "ELECTRONICS_BUTTON":
-//                    log.info("ELECTRONICS_BUTTON" + chatId);
+                    log.info("ELECTRONICS_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.ELECTRONICS;
                     setSpendingProcess(chatId);
                     break;
                 case "TAXI_BUS_BUTTON":
-//                    log.info("TAXI_BUS_BUTTON" + chatId);
+                    log.info("TAXI_BUS_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.TAXI_BUS;
                     setSpendingProcess(chatId);
                     break;
                 case "CAR_BUTTON":
-//                    log.info("CAR_BUTTON" + chatId);
+                    log.info("CAR_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.CAR;
                     setSpendingProcess(chatId);
                     break;
                 case "CAR_PARTS_BUTTON":
-//                    log.info("CAR_PARTS_BUTTON" + chatId);
+                    log.info("CAR_PARTS_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.CAR_PARTS;
                     setSpendingProcess(chatId);
                     break;
                 case "CAR_REPAIR_BUTTON":
-//                    log.info("CAR_REPAIR_BUTTON" + chatId);
+                    log.info("CAR_REPAIR_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.CAR_REPAIR;
                     setSpendingProcess(chatId);
                     break;
                 case "FOOD_BUTTON":
-//                    log.info("FOOD_BUTTON" + chatId);
+                    log.info("FOOD_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.FOOD;
                     setEarningProcess(chatId);
                     break;
                 case "SOFT_DRINK_BUTTON":
-//                    log.info("SOFT_DRINK_BUTTON" + chatId);
+                    log.info("SOFT_DRINK_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.SOFT_DRINK;
                     setSpendingProcess(chatId);
                     break;
                 case "ALCOHOL_BUTTON":
-//                    log.info("ALCOHOL_BUTTON" + chatId);
+                    log.info("ALCOHOL_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.ALCOHOL;
                     setEarningProcess(chatId);
                     break;
                 case "SWEETS_AND_COOKIES_BUTTON":
-//                    log.info("SWEETS_AND_COOKIES_BUTTON" + chatId);
+                    log.info("SWEETS_AND_COOKIES_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.SWEETS_AND_COOKIES;
                     setSpendingProcess(chatId);
                     break;
                 case "RESTAURANT_BUTTON":
-//                    log.info("RESTAURANT_BUTTON" + chatId);
+                    log.info("RESTAURANT_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.RESTAURANT;
                     setSpendingProcess(chatId);
                     break;
                 case "RESORT_BUTTON":
-//                    log.info("RESORT_BUTTON" + chatId);
+                    log.info("RESORT_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.RESORT;
                     setSpendingProcess(chatId);
                     break;
                 case "STATIONARY_BUTTON":
-//                    log.info("STATIONARY_BUTTON" + chatId);
+                    log.info("STATIONARY_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.STATIONARY;
                     setSpendingProcess(chatId);
                     break;
                 case "HOME_STUFF_BUTTON":
-//                    log.info("HOME_STUFF_BUTTON" + chatId);
+                    log.info("HOME_STUFF_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.HOME_STUFF;
                     setSpendingProcess(chatId);
                     break;
                 case "CLOTHES_BUTTON":
-//                    log.info("CLOTHES_BUTTON" + chatId);
+                    log.info("CLOTHES_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.CLOTHES;
                     setSpendingProcess(chatId);
                     break;
                 case "FOOTWEAR_BUTTON":
-//                    log.info("FOOTWEAR_BUTTON" + chatId);
+                    log.info("FOOTWEAR_BUTTON" + chatId);
                     typeOfPurchase = TypeOfPurchase.FOOTWEAR;
                     setSpendingProcess(chatId);
                     break;
                 case "All info about my spending_BUTTON":
-//                    log.info("All info about my spending_BUTTON " + chatId);
-                    sendMessage(chatId, findAllSpending(chatId).toString());
+                    log.info("All info about my spending_BUTTON " + chatId);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            spendingService.findAllSpending(chatId)).toString());
                     break;
                 case "Money spent this year_BUTTON":
-//                    log.info("Money spent this year_BUTTON " + chatId);
-                    sendMessage(chatId, findAllSpendingOfTheCurrentYear(chatId).toString());
+                    log.info("Money spent this year_BUTTON " + chatId);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            spendingService.findAllSpendingOfTheCurrentYear(chatId)).toString());
                     break;
                 case "Money spent the year ..._BUTTON":
-//                    log.info("Money spent the year ..._BUTTON " + chatId);
+                    log.info("Money spent the year ..._BUTTON " + chatId);
                     marker = Marker.SOME_YEAR_SPENDING;
                     sendMessage(chatId, "Please, enter the correct year: ");
                     break;
                 case "Money spent this month_BUTTON":
-//                    log.info("Money spent this month_BUTTON " + chatId);
-                    sendMessage(chatId, findAllSpendingOfTheCurrentMonth(chatId).toString());
+                    log.info("Money spent this month_BUTTON " + chatId);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            spendingService.findAllSpendingOfTheCurrentMonth(chatId)).toString());
                     break;
                 case "Money spent the month ..._BUTTON":
-//                    log.info("Money spent the month ..._BUTTON " + chatId);
+                    log.info("Money spent the month ..._BUTTON " + chatId);
                     marker = Marker.SOME_MONTH_SPENDING;
                     sendMessage(chatId, "Please, enter the correct month from 1-12: ");
                     break;
                 case "Money spent today_BUTTON":
-//                    log.info("Money spent today_BUTTON " + chatId);
-                    sendMessage(chatId, findAllSpendingOfTheCurrentDay(chatId).toString());
+                    log.info("Money spent today_BUTTON " + chatId);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            spendingService.findAllSpendingOfTheCurrentDay(chatId)).toString());
                     break;
                 case "Money spent the day ..._BUTTON":
-//                    log.info("Money spent the day ..._BUTTON " + chatId);
+                    log.info("Money spent the day ..._BUTTON " + chatId);
                     marker = Marker.SOME_DAY_SPENDING;
                     sendMessage(chatId, "Please, enter the correct day from 1-31: ");
                     break;
                 case "Profit of the current month_BUTTON":
+                    log.info("Profit of the current month_BUTTON " + chatId);
                     calculateProfitOfTheCurrentMonth(chatId);
                     break;
                 case "Profit of the optional month_BUTTON":
+                    log.info("Profit of the optional month_BUTTON " + chatId);
                     marker = Marker.MONTH_PROFIT;
                     sendMessage(chatId, "Please, enter the month, when you want to calculate profit: ");
                     break;
                 case "Profit of the current year_BUTTON":
+                    log.info("Profit of the current year_BUTTON " + chatId);
                     calculateProfitOfTheCurrentYear(chatId);
                     break;
                 case "Profit of the optional year_BUTTON":
+                    log.info("Profit of the optional year_BUTTON " + chatId);
                     marker = Marker.YEAR_PROFIT;
                     sendMessage(chatId, "Please, enter the year, when you want to calculate profit: ");
                     break;
                 case "Profit for selected period_BUTTON":
+                    log.info("Profit for selected period_BUTTON " + chatId);
                     marker = Marker.START_DATE_PROFIT;
                     sendMessage(chatId, "Please, enter the initial date in format DD-MM-YYYY to start the calculating process: ");
                     break;
@@ -767,6 +751,23 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         botUserRepository.save(user);
         log.info("User saved with the information: " + user);
         return notificationMessage;
+    }
+
+    public void deleteEarningOrSpendingIdentifierReceived(long chatId, String receivedMessageText) {
+        log.info("Received info: " + receivedMessageText);
+        String idPattern = "^\\d+$";
+        if (Pattern.matches(idPattern, receivedMessageText)) {
+            log.info("Deleting id pattern has been approved: " + receivedMessageText);
+            currentId = Long.parseLong(receivedMessageText);
+            log.info("After parcing id: " + currentId);
+            if (marker == Marker.DELETE_SPENDING) {
+                sendMessage(chatId, spendingService.deleteSpending(currentId, chatId));
+            } else if (marker == Marker.DELETE_EARNING) {
+                sendMessage(chatId, earningService.deleteEarning(currentId, chatId));
+            }
+        }
+        marker = Marker.NONE;
+        currentId = null;
     }
 
     public void dateIdentifierReceived(long chatId, String receivedMessageText) {
@@ -912,7 +913,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         log.info("setEarningProcess called with chatId " + chatId);
         if (typeOfEarning == null) {
             log.info("setEarningProcess called and typeOfEarning == null, with chatId " + chatId);
-            List<List<String>> earningTypeList = createListOfLists(Arrays.stream(TypeOfEarning.values())
+            List<List<String>> earningTypeList = buttonAndListCreator.createListOfLists(Arrays.stream(TypeOfEarning.values())
                     .map(Enum::toString).toList());
             sendMessageWithButtons(chatId, "Pick the type of earning:", earningTypeList);
         } else {
@@ -956,7 +957,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         log.info("setSpendingProcess called with chatId " + chatId);
         if (typeOfPurchase == null) {
             log.info("setSpendingProcess called and typeOfPurchase == null, with chatId " + chatId);
-            List<List<String>> purchaseTypeList = createListOfLists(Arrays.stream(TypeOfPurchase.values())
+            List<List<String>> purchaseTypeList = buttonAndListCreator.createListOfLists(Arrays.stream(TypeOfPurchase.values())
                     .map(Enum::toString).toList());
             sendMessageWithButtons(chatId, "Pick the type of purchase:", purchaseTypeList);
         } else if (typeOfPurchase != null && shopName == null) {
@@ -1018,171 +1019,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         sendMessage(chatId, "Enter the date of this spending in format (DD-MM-YYYY):");
     }
 
-
-    @Override
-    public List<Spending> findAllSpending(long chatId) {
-//        log.info("findAllEarning method was called by " + chatId);
-        List<Spending> spendingList = spendingRepository.findAll().stream()
-                .filter(sp -> sp.getBotUser().getId() == chatId)
-                .sorted(new SpendingDateComparator()).toList();
-        return checkAndReturnListIfItIsNotEmpty(chatId, spendingList);
-    }
-
-    @Override
-    public List<Spending> findAllSpendingOfTheYear(int year, long chatId) {
-//        log.info("findAllSpendingOfTheYear method was called by " + chatId);
-        List<Spending> spendingList = findAllSpending(chatId).stream()
-                .filter(x -> (int) x.getSpentAt().toLocalDateTime().getYear() == year)
-                .toList();
-        return checkAndReturnListIfItIsNotEmpty(chatId, spendingList);
-    }
-
-    @Override
-    public List<Spending> findAllSpendingOfTheCurrentYear(long chatId) {
-//        log.info("findAllSpendingOfTheCurrentYear method was called by " + chatId);
-        List<Spending> spendingList = findAllSpendingOfTheYear(LocalDate.now().getYear(), chatId);
-        return checkAndReturnListIfItIsNotEmpty(chatId, spendingList);
-    }
-
-    @Override
-    public List<Spending> findAllSpendingOfTheMonth(int monthNumber, int year, long chatId) {
-//        log.info("findAllSpendingOfTheMonth method was called by " + chatId);
-        List<Spending> spendingList = findAllSpending(chatId).stream()
-                .filter(x -> ((int) x.getSpentAt().toLocalDateTime().getYear() == year))
-                .filter(y -> (y.getSpentAt().toLocalDateTime().getMonth().getValue() == monthNumber))
-                .toList();
-        return checkAndReturnListIfItIsNotEmpty(chatId, spendingList);
-    }
-
-    @Override
-    public List<Spending> findAllSpendingOfTheCurrentMonth(long chatId) {
-//        log.info("findAllSpendingOfTheCurrentMonth method was called by " + chatId);
-        List<Spending> spendingList = findAllSpendingOfTheMonth(LocalDate.now().getMonth().getValue(), LocalDate.now().getYear(), chatId);
-        return checkAndReturnListIfItIsNotEmpty(chatId, spendingList);
-    }
-
-    @Override
-    public List<Spending> findAllSpendingOfTheCurrentDay(long chatId) {
-//        log.info("findAllSpendingOfTheCurrentDay " + chatId);
-        List<Spending> spendingList = findAllSpendingOfTheDay(
-                LocalDate.now().getDayOfMonth(),
-                LocalDate.now().getMonth().getValue(),
-                LocalDate.now().getYear(), chatId);
-        return checkAndReturnListIfItIsNotEmpty(chatId, spendingList);
-    }
-
-    @Override
-    public List<Spending> findAllSpendingOfTheDay(int spentDay, int spentMonth, int spentYear, long chatId) {
-//            log.info("findAllSpendingOfTheDay method was called by " + chatId);
-        List<Spending> spendingList = findAllSpending(chatId).stream()
-                .filter(x -> ((int) x.getSpentAt().toLocalDateTime().getYear() == spentYear))
-                .filter(y -> (y.getSpentAt().toLocalDateTime().getMonth().getValue() == spentMonth))
-                .filter(y -> (y.getSpentAt().toLocalDateTime().getDayOfMonth() == spentDay))
-                .toList();
-        return checkAndReturnListIfItIsNotEmpty(chatId, spendingList);
-    }
-
-    @Override
-    public List<Earning> findAllEarning(long chatId) {
-//        log.info("findAllEarning method was called by " + chatId);
-        List<Earning> earningList = earningRepository.findAll().stream()
-                .filter(earn -> earn.getBotUser().getId() == chatId)
-                .sorted(new EarningDateComparator()).toList();
-        return checkAndReturnListIfItIsNotEmpty(chatId, earningList);
-    }
-
-    //    @Override
-    public List<Earning> findAllEarningOfTheYear(int year, long chatId) {
-//        log.info("findAllEarningOfTheYear method was called by " + chatId);
-        List<Earning> earningList = findAllEarning(chatId).stream()
-                .filter(x -> (int) x.getEarnedAt().toLocalDateTime().getYear() == year)
-                .toList();
-        return checkAndReturnListIfItIsNotEmpty(chatId, earningList);
-    }
-
-    @Override
-    public List<Earning> findAllEarningOfTheCurrentYear(long chatId) {
-//        log.info("findAllEarningOfTheCurrentYear method was called by " + chatId);
-        List<Earning> earningList = findAllEarningOfTheYear(LocalDate.now().getYear(), chatId);
-        return checkAndReturnListIfItIsNotEmpty(chatId, earningList);
-    }
-
-    @Override
-    public List<Earning> findAllEarningOfTheMonth(int monthNumber, int year, long chatId) {
-//        log.info("findAllEarningOfTheMonth method was called by " + chatId);
-        List<Earning> earningList = findAllEarning(chatId).stream()
-                .filter(x -> ((int) x.getEarnedAt().toLocalDateTime().getYear() == year))
-                .filter(y -> (y.getEarnedAt().toLocalDateTime().getMonth().getValue() == monthNumber))
-                .toList();
-        return checkAndReturnListIfItIsNotEmpty(chatId, earningList);
-    }
-
-    public List<Earning> findAllEarningOfTheDay(int day, int monthNumber, int year, long chatId) {
-//        log.info("findAllEarningOfTheDay method was called by " + chatId);
-        List<Earning> earningList = findAllEarning(chatId).stream()
-                .filter(x -> ((int) x.getEarnedAt().toLocalDateTime().getYear() == year))
-                .filter(y -> (y.getEarnedAt().toLocalDateTime().getMonth().getValue() == monthNumber))
-                .filter(y -> (y.getEarnedAt().toLocalDateTime().getDayOfMonth() == day))
-                .toList();
-        return checkAndReturnListIfItIsNotEmpty(chatId, earningList);
-    }
-
-    @Override
-    public List<Earning> findAllEarningOfTheCurrentMonth(long chatId) {
-//        log.info("findAllEarningOfTheCurrentMonth method was called by " + chatId);
-        List<Earning> earningList = findAllEarningOfTheMonth(LocalDate.now().getMonth().getValue(), LocalDate.now().getYear(), chatId);
-        return checkAndReturnListIfItIsNotEmpty(chatId, earningList);
-    }
-
-    @Override
-    public void deleteSpending(long id, long chatIdCheck) {
-//        log.info("deleteSpending method was called by " + chatIdCheck + ". Deleting of the spending by id: " + id);
-        Spending spendingToDelete = spendingRepository.findById(id).orElse(null);
-        long chatId = 0;
-        if (spendingToDelete != null) {
-            chatId = spendingToDelete.getBotUser().getId();
-        }
-        if (chatId == chatIdCheck) {
-            spendingRepository.deleteById(id);
-            marker = Marker.NONE;
-            if (spendingRepository.findById(id).orElse(null) == null) {
-                currentId = null;
-                sendMessage(chatId, "Spending data with the id: " + id + " has been successfully deleted");
-            }
-        } else {
-            sendMessage(chatId, "You are trying to delete not your spending. You can check " +
-                    "saved data for your account and try to delete again");
-            marker = Marker.NONE;
-            currentId = null;
-        }
-        marker = Marker.NONE;
-    }
-
-    @Override
-    public void deleteEarning(long id, long chatIdCheck) {
-//        log.info("deleteEarning method was called by " + chatIdCheck + ". Deleting of the earning by id: " + id);
-        Earning earningToDelete = earningRepository.findById(id).orElse(null);
-        long chatId = 0;
-        if (earningToDelete != null) {
-            chatId = earningToDelete.getBotUser().getId();
-        }
-        if (chatId == chatIdCheck) {
-            earningRepository.deleteById(id);
-            marker = Marker.NONE;
-            if (earningRepository.findById(id).orElse(null) == null) {
-                currentId = null;
-                sendMessage(chatId, "Earning data with the id: " + id + " has been successfully deleted");
-            }
-        } else {
-            sendMessage(chatId, "You are trying to delete not your earning. You can check " +
-                    "saved data for your account and try to delete again");
-            marker = Marker.NONE;
-            currentId = null;
-        }
-        marker = Marker.NONE;
-//        deleteEarningMarker = 0;
-    }
-
     @Override
     public String getBotUsername() {
         return botConfig.getBotName();
@@ -1193,22 +1029,13 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         return botConfig.getBotToken();
     }
 
-
-    public boolean expectingButtonPressed(String callBackData, String expectingNameOfButton) {
-//            Получаем идентификатор кнопки
-//        log.info("yesButtonPressed was called");
-        if (callBackData.equals(expectingNameOfButton)) {
-            return true;
-        }
-        return false;
-    }
-
     public void startCommandReceived(long chatId, String name) {
+        log.info("startCommandReceived method has been started.");
         String answer = EmojiParser.parseToUnicode("Hi, " + name + "!" + ":blush:" + " Let's start working!" + ":computer:" + " What are we going to do right now?" + ":arrow_down:");
         List<String> buttonNames = List.of("/start", "/setearning", "/setearningbydate", "/settodayspending", "/setspending",
                 "/findspending", "/findearning", "/calculateprofit", "/deletespending", "/deleteearning", "/data", "/deletedata", "/help");
         sendMessageWithKeyboard(chatId, answer, buttonNames);
-//        log.info("Replied to user " + name);
+        log.info("Replied to user " + name);
     }
 
     public void sendMessageWithKeyboard(long chatId, String textToSend, List<String> buttonNames) {
@@ -1216,37 +1043,20 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         sendMessage.setChatId(String.valueOf(chatId));
         sendMessage.setText(textToSend);
         if (!buttonNames.isEmpty()) {
-            createKeyboardForRequest(buttonNames, sendMessage);
+            buttonAndListCreator.createKeyboardForRequest(buttonNames, sendMessage);
         }
         executeMessage(sendMessage);
     }
 
     public void sendMessageWithButtons(long chatId, String textToSend, List<List<String>> buttonNames) {
-//        log.info("sendMessageWithButtons was called");
+        log.info("sendMessageWithButtons was called");
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(String.valueOf(chatId));
         sendMessage.setText(textToSend);
         if (!buttonNames.isEmpty()) {
-            createButtonsInMessage(sendMessage, buttonNames);
+            buttonAndListCreator.createButtonsInMessage(sendMessage, buttonNames);
         }
         executeMessage(sendMessage);
-    }
-
-    public void createButtonsInMessage(SendMessage sendMessage, List<List<String>> buttonNames) {
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        List<List<InlineKeyboardButton>> lists = new ArrayList<>();
-        for (List<String> list : buttonNames) {
-            List<InlineKeyboardButton> buttons = new ArrayList<>();
-            for (String buttonName : list) {
-                InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
-                inlineKeyboardButton.setText(buttonName);
-                inlineKeyboardButton.setCallbackData(buttonName + "_BUTTON");
-                buttons.add(inlineKeyboardButton);
-            }
-            lists.add(buttons);
-        }
-        markup.setKeyboard(lists);
-        sendMessage.setReplyMarkup(markup);
     }
 
     public void sendMessage(long chatId, String textToSend) {
@@ -1255,48 +1065,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         sendMessage.setChatId(String.valueOf(chatId));
         sendMessage.setText(textToSend);
         executeMessage(sendMessage);
-    }
-
-    public List<List<String>> createListOfLists(List<String> listOfAllStrings) {
-        int counter = 0;
-        List<List<String>> resultedListOfLists = new ArrayList<>();
-        List<String> currentList = new ArrayList<>();
-        for (String str : listOfAllStrings) {
-            if (counter < 2) {
-                currentList.add(str);
-                counter++;
-            } else {
-                resultedListOfLists.add(currentList);
-                currentList = new ArrayList<>();
-                currentList.add(str);
-                counter = 1;
-            }
-        }
-        if (!currentList.isEmpty()) {
-            resultedListOfLists.add(currentList);
-        }
-        return resultedListOfLists;
-    }
-
-    public void createKeyboardForRequest(List<String> buttonNames, SendMessage sendMessage) {
-        ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
-        List<KeyboardRow> keyboardRows = new ArrayList<>();
-        KeyboardRow row = new KeyboardRow();
-        int counter = 0;
-        for (String button : buttonNames) {
-            if (counter == 3) {
-                keyboardRows.add(row);
-                counter = 0;
-                row = new KeyboardRow();
-            }
-            row.add(button);
-            counter += 1;
-        }
-        if (!row.isEmpty()) {
-            keyboardRows.add(row);
-        }
-        replyKeyboardMarkup.setKeyboard(keyboardRows);
-        sendMessage.setReplyMarkup(replyKeyboardMarkup);
     }
 
     public void sendEditedMessage(long chatId, int messageId, String notificationMessage) {
@@ -1320,7 +1088,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
     @Scheduled(cron = "${cron.scheduler}")
-//    @Scheduled(cron = "0 * * * * *") - раз в минуту. Выше - раз в месяц
     public void sendAutoMessage() {
         List<AutomatedMessage> automatedMessageList = automatedMessageRepository.findAll();
         List<BotUser> botUsersList = botUserRepository.findAll();
@@ -1332,6 +1099,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
     public boolean dateMatchesTheMonth(int day, int month, int year) {
+        boolean toReturn = false;
         switch (month) {
             case 1:
             case 3:
@@ -1341,17 +1109,15 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             case 10:
             case 12:
                 if (day > 0 && day <= 31) {
-                    return true;
+                    toReturn = true;
                 }
                 break;
             case 2:
                 if (day > 0 && day <= 29) {
-                    if (day == 29 && Year.of(year).isLeap()) {
-                        return true;
-                    } else if (day == 29 && !Year.of(year).isLeap()) {
-                        return false;
+                    toReturn = true;
+                    if (day == 29 && !Year.of(year).isLeap()) {
+                        toReturn = false;
                     }
-                    return true;
                 }
                 break;
             case 4:
@@ -1359,20 +1125,21 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             case 9:
             case 11:
                 if (day > 0 && day <= 30) {
-                    return true;
+                    toReturn = true;
                 }
                 break;
             default:
-
+                break;
         }
-        return true;
+        return toReturn;
     }
 
     public <E> List<E> checkAndReturnListIfItIsNotEmpty(long chatId, List<E> list) {
         if (list.isEmpty()) {
-            sendMessage(chatId, "Earning list you are looking for doesn't exist");
+            String textToSend = "Earning list you are looking for doesn't exist.";
+            sendMessage(chatId, textToSend);
 //            throw new DataDoesNotExistException("Earning list you are looking for doesn't exist");
-            log.error("Earning list you are looking for doesn't exist");
+            log.error(textToSend + " For user with id: " + chatId);
         }
         return list;
     }
