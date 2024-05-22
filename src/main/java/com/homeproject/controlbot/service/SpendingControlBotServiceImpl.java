@@ -252,92 +252,37 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         deleteEarningOrSpendingIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case SOME_YEAR_EARNINGS:
-//                        log.info("Received info: " + receivedMessageText);
-                        String yearPattern = "^\\d{4}$";
-                        if (Pattern.matches(yearPattern, receivedMessageText)) {
-                            int yearIndicator = Integer.parseInt(receivedMessageText);
-                            if (monthIndicator == 0 && dayIndicator == 0) {
-                                log.info("SOME_YEAR_EARNINGS & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                                sendMessage(chatId,
-                                        checkAndReturnListIfItIsNotEmpty(chatId,
-                                                earningService.findAllEarningOfTheYear(yearIndicator, chatId)).toString());
-
-                            } else if (monthIndicator != 0 && dayIndicator == 0) {
-                                log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                                sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                                        earningService.findAllEarningOfTheMonth(monthIndicator, yearIndicator, chatId)).toString());
-                                monthIndicator = 0;
-                            } else if (monthIndicator != 0 && dayIndicator != 0) {
-                                log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
-                                if (dateMatchesTheMonth(dayIndicator, monthIndicator, yearIndicator)) {
-                                    sendMessage(chatId,
-                                            checkAndReturnListIfItIsNotEmpty(chatId, earningService.findAllEarningOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
-                                } else {
-                                    sendMessage(chatId, "The date doesn't exist. Please, check the provided information " +
-                                            "and try again by pressing /setearningbydate .");
-                                }
-                                monthIndicator = 0;
-                                dayIndicator = 0;
-                            }
-                            marker = Marker.NONE;
-                        } else {
-                            marker = Marker.NONE;
-//                            log.info("Pattern doesn't match the year: " + receivedMessageText + ". For the user: " + currentId);
-                            sendMessage(chatId, "The format of the year is not correct. " +
-                                    "It must be XXXX. You can try again by pressing /start and choosing one of the options.");
-                        }
-
+                    case SOME_YEAR_SPENDING:
+                        someYearIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case SOME_MONTH_EARNING:
-//                        log.info("Received info: " + receivedMessageText);
-                        String monthPattern = "^([1-9]|1[0-2])$";
-                        if (Pattern.matches(monthPattern, receivedMessageText)) {
-                            marker = Marker.SOME_YEAR_EARNINGS;
-                            monthIndicator = Integer.parseInt(receivedMessageText);
-                            sendMessage(chatId,
-                                    "Please, enter the year: ");
-                        } else {
-                            marker = Marker.NONE;
-//                            log.info("Pattern doesn't match the month: " + receivedMessageText + ". For the user: " + currentId);
-                            sendMessage(chatId, "The format of the month is not correct. " +
-                                    "It must be 1-12. You can try again by pressing /start and choosing one of the options.");
-                        }
+                    case SOME_MONTH_SPENDING:
+                        someMonthIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case SOME_DAY_EARNING:
-//                        log.info("Received info: " + receivedMessageText);
-                        String dayPattern = "^([1-9]|[12][0-9]|3[01])$";
-                        if (Pattern.matches(dayPattern, receivedMessageText)) {
-                            marker = Marker.SOME_MONTH_EARNING;
-                            dayIndicator = Integer.parseInt(receivedMessageText);
-                            sendMessage(chatId,
-                                    "Please, enter the month in format 1-12: ");
-                        } else {
-                            marker = Marker.NONE;
-//                            log.info("Pattern doesn't match the day: " + receivedMessageText + ". For the user: " + currentId);
-                            sendMessage(chatId, "The format of the day is not correct. " +
-                                    "It must be 1-31. You can try again by pressing /start and choosing one of the options.");
-                        }
+                    case SOME_DAY_SPENDING:
+                        someDayIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case SHOP_NAME:
-//                        log.info("SHOP_NAME marker. Received info: " + receivedMessageText);
+                        log.info("SHOP_NAME marker. Received info: " + receivedMessageText);
                         shopName = receivedMessageText;
                         setSpendingProcess(chatId);
                         break;
                     case DESCRIPTION_PURCHASE:
-//                        log.info("DESCRIPTION_PURCHASE marker. Received info: " + receivedMessageText);
+                        log.info("DESCRIPTION_PURCHASE marker. Received info: " + receivedMessageText);
                         descriptionOfPurchase = receivedMessageText;
                         setSpendingProcess(chatId);
                         break;
                     case SET_SPENDING:
-//                        log.info("SET_SPENDING switch was reached");
+                        log.info("SET_SPENDING switch was reached");
                         if (typeOfPurchase != null && shopName != null && descriptionOfPurchase != null) {
                             String numberPattern = "^\\d*\\.?\\d+$";
-//                            log.info("SET_SPENDING switch was reached & typeOfPurchase != null && shopName != null && descriptionOfPurchase != null");
+                            log.info("SET_SPENDING switch was reached & typeOfPurchase != null && shopName != null && descriptionOfPurchase != null");
                             if (Pattern.matches(numberPattern, receivedMessageText)) {
-//                                log.info("SET_SPENDING switch was reached and pattern was a match");
-//                                log.info("input text is: " + receivedMessageText);
+                                log.info("SET_SPENDING switch was reached and pattern was a match");
+                                log.info("input text is: " + receivedMessageText);
                                 spentSum = new BigDecimal(receivedMessageText);
-//                                log.info("sum is: " + spentSum);
+                                log.info("sum is: " + spentSum);
                                 if (spendingDate == null) {
                                     setSpending(chatId, spentSum);
                                 } else {
@@ -345,7 +290,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                                     try {
                                         setSpendingByDate(chatId, spentSum, new Timestamp((dateFormat.parse(spendingDate).getTime())));
                                     } catch (ParseException e) {
-//                                        log.error("An error occurred with parsing string to date: " + e.getMessage());
+                                        log.error("An error occurred with parsing string to date: " + e.getMessage());
                                         sendMessage(chatId, "The provided date doesn't exist. Try again.");
                                         spentSum = null;
                                         typeOfPurchase = null;
@@ -368,72 +313,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                     case SPENDING_DATE_IDENTIFICATOR:
                         log.info("SPENDING_DATE_IDENTIFICATOR switch was reached");
                         dateIdentifierReceived(chatId, receivedMessageText);
-                        break;
-                    case SOME_YEAR_SPENDING:
-                        log.info("Received info: " + receivedMessageText);
-                        String yearSpendingPattern = "^\\d{4}$";
-                        if (Pattern.matches(yearSpendingPattern, receivedMessageText)) {
-                            int yearIndicator = Integer.parseInt(receivedMessageText);
-                            if (monthIndicator == 0 && dayIndicator == 0) {
-                                log.info("SOME_YEAR_SPENDING & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                                sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                                        spendingService.findAllSpendingOfTheYear(yearIndicator, chatId)).toString());
-                                yearIndicator = 0;
-                            } else if (monthIndicator != 0 && dayIndicator == 0) {
-                                log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                                sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                                        spendingService.findAllSpendingOfTheMonth(monthIndicator, yearIndicator, chatId)).toString());
-                                monthIndicator = 0;
-                            } else if (monthIndicator != 0 && dayIndicator != 0) {
-                                log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
-                                if (dateMatchesTheMonth(dayIndicator, monthIndicator, yearIndicator)) {
-                                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                                            spendingService.findAllSpendingOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
-                                } else {
-                                    sendMessage(chatId, "The date doesn't exist. Please, check the provided information " +
-                                            "and try again by pressing /setspendingbydate .");
-                                }
-                                monthIndicator = 0;
-                                dayIndicator = 0;
-                            }
-                            marker = Marker.NONE;
-                        } else {
-                            marker = Marker.NONE;
-//                            log.info("Pattern doesn't match the year: " + receivedMessageText + ". For the user: " + currentId);
-                            sendMessage(chatId, "The format of the year is not correct. " +
-                                    "It must be XXXX. You can try again by pressing /start and choosing one of the options.");
-                        }
-
-                        break;
-                    case SOME_MONTH_SPENDING:
-//                        log.info("Received info: " + receivedMessageText);
-                        String monthSpendingPattern = "^([1-9]|1[0-2])$";
-                        if (Pattern.matches(monthSpendingPattern, receivedMessageText)) {
-                            marker = Marker.SOME_YEAR_SPENDING;
-                            monthIndicator = Integer.parseInt(receivedMessageText);
-                            sendMessage(chatId,
-                                    "Please, enter the year: ");
-                        } else {
-                            marker = Marker.NONE;
-//                            log.info("Pattern doesn't match the month: " + receivedMessageText + ". For the user: " + currentId);
-                            sendMessage(chatId, "The format of the month is not correct. " +
-                                    "It must be 1-12. You can try again by pressing /start and choosing one of the options.");
-                        }
-                        break;
-                    case SOME_DAY_SPENDING:
-//                        log.info("Received info: " + receivedMessageText);
-                        String daySpendingPattern = "^([1-9]|[12][0-9]|3[01])$";
-                        if (Pattern.matches(daySpendingPattern, receivedMessageText)) {
-                            marker = Marker.SOME_MONTH_SPENDING;
-                            dayIndicator = Integer.parseInt(receivedMessageText);
-                            sendMessage(chatId,
-                                    "Please, enter the month in format 1-12: ");
-                        } else {
-                            marker = Marker.NONE;
-//                            log.info("Pattern doesn't match the day: " + receivedMessageText + ". For the user: " + currentId);
-                            sendMessage(chatId, "The format of the day is not correct. " +
-                                    "It must be 1-31. You can try again by pressing /start and choosing one of the options.");
-                        }
                         break;
                     case START_DATE_PROFIT:
 //                        log.info("START_DATE_PROFIT switch was reached");
@@ -752,6 +631,100 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         return notificationMessage;
     }
 
+    public void someYearIdentifierReceived(long chatId, String receivedMessageText) {
+        log.info("Received info: " + receivedMessageText);
+        String yearPattern = "^\\d{4}$";
+        if (Pattern.matches(yearPattern, receivedMessageText)) {
+            int yearIndicator = Integer.parseInt(receivedMessageText);
+            if (monthIndicator == 0 && dayIndicator == 0) {
+                if (marker == Marker.SOME_YEAR_EARNINGS) {
+                    log.info("SOME_YEAR_EARNINGS & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
+                    sendMessage(chatId,
+                            checkAndReturnListIfItIsNotEmpty(chatId,
+                                    earningService.findAllEarningOfTheYear(yearIndicator, chatId)).toString());
+                } else if (marker == Marker.SOME_YEAR_SPENDING) {
+                    log.info("SOME_YEAR_SPENDING & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            spendingService.findAllSpendingOfTheYear(yearIndicator, chatId)).toString());
+                }
+            } else if (monthIndicator != 0 && dayIndicator == 0) {
+                if (marker == Marker.SOME_YEAR_EARNINGS) {
+                    log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            earningService.findAllEarningOfTheMonth(monthIndicator, yearIndicator, chatId)).toString());
+                } else if (marker == Marker.SOME_YEAR_SPENDING) {
+                    log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
+                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                            spendingService.findAllSpendingOfTheMonth(monthIndicator, yearIndicator, chatId)).toString());
+                }
+                monthIndicator = 0;
+            } else if (monthIndicator != 0 && dayIndicator != 0) {
+                if (dateMatchesTheMonth(dayIndicator, monthIndicator, yearIndicator)) {
+                    if (marker == Marker.SOME_YEAR_EARNINGS) {
+                        log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
+                        sendMessage(chatId,
+                                checkAndReturnListIfItIsNotEmpty(chatId, earningService.findAllEarningOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
+                    } else if (marker == Marker.SOME_YEAR_SPENDING) {
+                        log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
+                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                spendingService.findAllSpendingOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
+                    }
+                } else {
+                    sendMessage(chatId, "The date doesn't exist. Please, check the provided information " +
+                            "and try again by pressing /start .");
+                }
+                monthIndicator = 0;
+                dayIndicator = 0;
+            }
+            marker = Marker.NONE;
+        } else {
+            marker = Marker.NONE;
+            log.info("Pattern doesn't match the year: " + receivedMessageText + ". For the user: " + currentId);
+            sendMessage(chatId, "The format of the year is not correct. " +
+                    "It must be XXXX. You can try again by pressing /start and choosing one of the options.");
+        }
+
+    }
+
+    public void someMonthIdentifierReceived(long chatId, String receivedMessageText) {
+        log.info("Received info: " + receivedMessageText);
+        String monthPattern = "^([1-9]|1[0-2])$";
+        if (Pattern.matches(monthPattern, receivedMessageText)) {
+            if (marker == Marker.SOME_MONTH_EARNING) {
+                marker = Marker.SOME_YEAR_EARNINGS;
+            } else if (marker == Marker.SOME_MONTH_SPENDING) {
+                marker = Marker.SOME_YEAR_SPENDING;
+            }
+            monthIndicator = Integer.parseInt(receivedMessageText);
+            sendMessage(chatId,
+                    "Please, enter the year: ");
+        } else {
+            marker = Marker.NONE;
+            log.info("Pattern doesn't match the month: " + receivedMessageText + ". For the user: " + currentId);
+            sendMessage(chatId, "The format of the month is not correct. " +
+                    "It must be 1-12. You can try again by pressing /start and choosing one of the options.");
+        }
+    }
+
+    public void someDayIdentifierReceived(long chatId, String receivedMessageText) {
+        log.info("Received info: " + receivedMessageText);
+        String dayPattern = "^([1-9]|[12][0-9]|3[01])$";
+        if (Pattern.matches(dayPattern, receivedMessageText)) {
+            if (marker == Marker.SOME_DAY_SPENDING) {
+                marker = Marker.SOME_MONTH_SPENDING;
+            } else if (marker == Marker.SOME_DAY_EARNING) {
+                marker = Marker.SOME_MONTH_EARNING;
+            }
+            dayIndicator = Integer.parseInt(receivedMessageText);
+            sendMessage(chatId, "Please, enter the month in format 1-12: ");
+        } else {
+            marker = Marker.NONE;
+            log.info("Pattern doesn't match the day: " + receivedMessageText + ". For the user: " + currentId);
+            sendMessage(chatId, "The format of the day is not correct. " +
+                    "It must be 1-31. You can try again by pressing /start and choosing one of the options.");
+        }
+    }
+
     public void deleteEarningOrSpendingIdentifierReceived(long chatId, String receivedMessageText) {
         log.info("Received info: " + receivedMessageText);
         String idPattern = "^\\d+$";
@@ -899,19 +872,19 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             marker = Marker.SHOP_NAME;
             sendMessage(chatId, "Please, enter the name of the shop or other place you made the purchase at: ");
         } else if (typeOfPurchase != null && shopName != null && descriptionOfPurchase == null) {
-//            log.info("setSpendingProcess called and typeOfPurchase != null && shopName != null && descriptionOfPurchase == null, with chatId " + chatId);
+            log.info("setSpendingProcess called and typeOfPurchase != null && shopName != null && descriptionOfPurchase == null, with chatId " + chatId);
             marker = Marker.DESCRIPTION_PURCHASE;
             sendMessage(chatId, "Please, enter the description of the purchase. If you don't need to describe it," +
                     "you can just enter a dash: ");
         } else if (typeOfPurchase != null && shopName != null && descriptionOfPurchase != null && spentSum == null) {
-//            log.info("setSpendingProcess called and typeOfPurchase != null && shopName != null && descriptionOfPurchase == null, with chatId: " + chatId);
+            log.info("setSpendingProcess called and typeOfPurchase != null && shopName != null && descriptionOfPurchase == null, with chatId: " + chatId);
             if (spentSum == null) {
                 log.info("setSpendingProcess was called and sum == 0 " + chatId + ". Marker is: " + marker);
                 marker = Marker.SET_SPENDING;
                 sendMessage(chatId, "What is the spent sum of money:");
             }
         } else {
-//            log.info("Wrong data in a process of executing the method. Clearing the data.");
+            log.info("Wrong data in a process of executing the method. Clearing the data.");
             sendMessage(chatId, "There's been a mistake. If you want to retry, you can " +
                     "send /settodayspending or /setspending again.");
             spentSum = null;
@@ -926,16 +899,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     @Override
     public void setSpendingByDate(long chatId, BigDecimal sum, Timestamp date) {
         log.info("setSpendingByDate has been started");
-//        Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-//        Spending spending = new Spending();
-//        spending.setRegisteredAt(currentTime);
-//        spending.setBotUser(botUserRepository.findById(chatId).orElse(null));
-//        spending.setSpentAt(date);
-//        spending.setTypeOfPurchase(typeOfPurchase);
-//        spending.setShopName(shopName);
-//        spending.setDescription(descriptionOfPurchase);
-//        spending.setSpendingSum(sum);
-//        spendingRepository.save(spending);
         sendMessage(chatId,
                 spendingService.saveSpendingByDate(chatId, botUserRepository.findById(chatId).orElse(null),
                         typeOfPurchase, shopName, descriptionOfPurchase, sum, date));
@@ -945,9 +908,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         spentSum = null;
         marker = Marker.NONE;
         spendingDate = null;
-//        if (!spendingRepository.findById(spending.getSpendingId()).isEmpty()) {
-//            sendMessage(chatId, "The provided data about your recent spending has been successfully saved.");
-//        }
     }
 
     public void setSpendingByDateProcess(long chatId) {
@@ -1073,9 +1033,9 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     public <E> List<E> checkAndReturnListIfItIsNotEmpty(long chatId, List<E> list) {
         if (list.isEmpty()) {
-            String textToSend = "Earning list you are looking for doesn't exist.";
+            String textToSend = "The data you are looking for doesn't exist.";
             sendMessage(chatId, textToSend);
-//            throw new DataDoesNotExistException("Earning list you are looking for doesn't exist");
+//            throw new DataDoesNotExistException("The data you are looking for doesn't exist");
             log.error(textToSend + " For user with id: " + chatId);
         }
         return list;
