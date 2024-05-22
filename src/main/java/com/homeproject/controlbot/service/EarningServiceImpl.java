@@ -24,14 +24,14 @@ public class EarningServiceImpl implements EarningService{
     private EarningRepository earningRepository;
 
     @Override
-    public boolean saveEarning(long chatId, Timestamp date, BotUser botUser, TypeOfEarning typeOfEarning, BigDecimal earnedSum) {
+    public String saveEarning(long chatId, Timestamp date, BotUser botUser, TypeOfEarning typeOfEarning, BigDecimal earnedSum) {
         log.info("setEarning has been started");
         Timestamp currentTime = new Timestamp(System.currentTimeMillis());
         return saveEarningByDate(chatId, date, botUser, typeOfEarning, earnedSum);
     }
 
     @Override
-    public boolean saveEarningByDate(long chatId, Timestamp date, BotUser botUser, TypeOfEarning typeOfEarning, BigDecimal earnedSum) {
+    public String saveEarningByDate(long chatId, Timestamp date, BotUser botUser, TypeOfEarning typeOfEarning, BigDecimal earnedSum) {
         log.info("setEarningByDate has been started");
         Timestamp currentTime = new Timestamp(System.currentTimeMillis());
         Earning earning = new Earning();
@@ -41,10 +41,12 @@ public class EarningServiceImpl implements EarningService{
         earning.setTypeOfEarning(typeOfEarning);
         earning.setEarningSum(earnedSum);
         earningRepository.save(earning);
+//        boolean resultIsTrue = earningService.saveEarningByDate(chatId, date, botUserRepository.findById(chatId).orElse(null),
+//                typeOfEarning, earnedSum);
         if (earningRepository.findById(earning.getEarningId()).isPresent()) {
-            return true;
+            return "The provided data about your recent earning has been successfully saved.";
         }
-        return false;
+        return "The provided data about your recent earning hasn't been saved. Please, try again.";
     }
 
     @Override

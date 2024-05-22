@@ -3,12 +3,11 @@ package com.homeproject.controlbot.service;
 import com.homeproject.controlbot.configuration.BotConfig;
 import com.homeproject.controlbot.entity.AutomatedMessage;
 import com.homeproject.controlbot.entity.BotUser;
-import com.homeproject.controlbot.entity.Earning;
-import com.homeproject.controlbot.entity.Spending;
 import com.homeproject.controlbot.enums.Marker;
 import com.homeproject.controlbot.enums.TypeOfEarning;
 import com.homeproject.controlbot.enums.TypeOfPurchase;
 import com.homeproject.controlbot.helper.ButtonAndListCreator;
+import com.homeproject.controlbot.helper.ProfitCalculator;
 import com.homeproject.controlbot.repository.AutomatedMessageRepository;
 import com.homeproject.controlbot.repository.BotUserRepository;
 import com.homeproject.controlbot.repository.EarningRepository;
@@ -34,7 +33,6 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,6 +61,8 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     private TypeOfEarning typeOfEarning;
     private TypeOfPurchase typeOfPurchase;
     private ButtonAndListCreator buttonAndListCreator = new ButtonAndListCreator();
+    @Autowired
+    private ProfitCalculator profitCalculator;
     private BigDecimal earnedSum;
     private String earningDate;
     private BigDecimal spentSum;
@@ -721,7 +721,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                 sendEditedMessage(chatId, (int) messageId, answerText);
             }
         }
-
     }
 
     public void registerBotUser(Update update) {
@@ -803,103 +802,41 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         return null;
     }
 
+    public BigDecimal getAndClearCurrentProfit() {
+        BigDecimal numberToReturn = profitCalculator.getCurrentProfit();
+        profitCalculator.setCurrentProfit(null);
+        return numberToReturn;
+    }
+
     public BigDecimal calculateProfit(long chatId, BigDecimal earnedSum, BigDecimal spentSum) {
-        BigDecimal resultedSum = earnedSum.subtract(spentSum);
-        if (resultedSum.signum() < 0) {
-            sendMessage(chatId, "You don't have any profit for that period. " +
-                    "You have spent more than you've earned. The difference is " + resultedSum);
-        } else {
-            sendMessage(chatId, "Your profit for that period is: " + resultedSum);
-        }
-        return resultedSum;
+        sendMessage(chatId, profitCalculator.calculateProfit(chatId, earnedSum, spentSum));
+        return getAndClearCurrentProfit();
     }
 
     public BigDecimal calculateProfitOfTheYear(long chatId, int year) {
         log.info("calculateProfitOfTheYear started");
-        BigDecimal allSpentMoney = spendingRepository.findAll().stream()
-                .filter(sp -> sp.getBotUser().getId() == chatId)
-                .filter(sp -> sp.getSpentAt().toLocalDateTime().getYear() == year)
-                .map(Spending::getSpendingSum)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal allEarnedMoney = earningRepository.findAll().stream()
-                .filter(e -> e.getBotUser().getId() == chatId)
-                .filter(e -> e.getEarnedAt().toLocalDateTime().getYear() == year)
-                .map(Earning::getEarningSum)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return calculateProfit(chatId, allEarnedMoney, allSpentMoney);
+        sendMessage(chatId, profitCalculator.calculateProfitOfTheYear(chatId, year));
+        return getAndClearCurrentProfit();
     }
 
     public BigDecimal calculateProfitOfTheCurrentYear(long chatId) {
-        return calculateProfitOfTheYear(chatId, LocalDate.now().getYear());
+        sendMessage(chatId, profitCalculator.calculateProfitOfTheCurrentYear(chatId));
+        return getAndClearCurrentProfit();
     }
 
     public BigDecimal calculateProfitOfTheMonth(long chatId, int year, int month) {
-        BigDecimal allSpentMoney = spendingRepository.findAll().stream()
-                .filter(sp -> sp.getBotUser().getId() == chatId)
-                .filter(sp -> sp.getSpentAt().toLocalDateTime().getYear() == year)
-                .filter(sp -> sp.getSpentAt().toLocalDateTime().getMonth().getValue() == month)
-                .map(Spending::getSpendingSum)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal allEarnedMoney = earningRepository.findAll().stream()
-                .filter(e -> e.getBotUser().getId() == chatId)
-                .filter(e -> e.getEarnedAt().toLocalDateTime().getYear() == year)
-                .filter(e -> e.getEarnedAt().toLocalDateTime().getMonth().getValue() == month)
-                .map(Earning::getEarningSum)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return calculateProfit(chatId, allEarnedMoney, allSpentMoney);
+        sendMessage(chatId, profitCalculator.calculateProfitOfTheMonth(chatId, year, month));
+        return getAndClearCurrentProfit();
     }
 
     public BigDecimal calculateProfitOfTheCurrentMonth(long chatId) {
-        LocalDate currentDate = LocalDate.now();
-        return calculateProfitOfTheMonth(chatId, currentDate.getYear(), currentDate.getMonth().getValue());
+        sendMessage(chatId, profitCalculator.calculateProfitOfTheCurrentMonth(chatId));
+        return getAndClearCurrentProfit();
     }
 
     public BigDecimal calculateProfitOfTheSelectedPeriod(long chatId, String startDate, String endDate) {
-        BigDecimal resultedSum = null;
-        String datePattern = "\\d{2}-\\d{2}-\\d{4}";
-        String pattern = "dd-MM-yyyy";
-        SimpleDateFormat dateFormat = new SimpleDateFormat(pattern);
-        Timestamp start = null;
-        Timestamp end = null;
-        if (Pattern.matches(datePattern, startDate) && Pattern.matches(datePattern, endDate)) {
-            try {
-                start = new Timestamp(dateFormat.parse(startDate).getTime());
-                end = new Timestamp(dateFormat.parse(endDate).getTime());
-            } catch (ParseException e) {
-                throw new RuntimeException(e);
-            }
-            if (start.after(end)) {
-                Timestamp temporaryStorage = start;
-                start = end;
-                end = temporaryStorage;
-            }
-            Timestamp finalEnd = end;
-            Timestamp finalStart = start;
-            BigDecimal allSpentMoney = spendingRepository.findAll().stream()
-                    .filter(sp -> sp.getBotUser().getId() == chatId)
-                    .filter(sp -> sp.getSpentAt().before(finalEnd))
-                    .filter(sp -> sp.getSpentAt().after(finalStart))
-                    .map(Spending::getSpendingSum)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal allEarnedMoney = earningRepository.findAll().stream()
-                    .filter(e -> e.getBotUser().getId() == chatId)
-                    .filter(e -> e.getEarnedAt().before(finalEnd))
-                    .filter(e -> e.getEarnedAt().after(finalStart))
-                    .map(Earning::getEarningSum)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            resultedSum = calculateProfit(chatId, allEarnedMoney, allSpentMoney);
-        } else {
-            sendMessage(chatId, "Provided date for calculations have wrong format. Please, check both of them, " +
-                    "and make sure they are provided in format: DD-MM-YYYY. " +
-                    "You can start again by pressing /calculateprofit");
-        }
-        return resultedSum;
+        sendMessage(chatId, profitCalculator.calculateProfitOfTheSelectedPeriod(chatId, startDate, endDate));
+        return getAndClearCurrentProfit();
     }
 
     @Override
@@ -929,14 +866,11 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     @Override
     public void setEarningByDate(long chatId, BigDecimal sum, Timestamp date) {
         log.info("setEarningByDate has been started");
-        boolean resultIsTrue = earningService.saveEarningByDate(chatId, date, botUserRepository.findById(chatId).orElse(null),
-                typeOfEarning, earnedSum);
-        if (resultIsTrue) {
-            sendMessage(chatId, "The provided data about your recent earning has been successfully saved.");
-            earnedSum = null;
-            marker = Marker.NONE;
-            earningDate = null;
-        }
+        sendMessage(chatId, earningService.saveEarningByDate(chatId, date, botUserRepository.findById(chatId).orElse(null),
+                typeOfEarning, earnedSum));
+        earnedSum = null;
+        marker = Marker.NONE;
+        earningDate = null;
     }
 
     public void setEarningByDateProcess(long chatId) {
@@ -991,30 +925,33 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     @Override
     public void setSpendingByDate(long chatId, BigDecimal sum, Timestamp date) {
-//        log.info("setSpendingByDate has been started");
-        Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-        Spending spending = new Spending();
-        spending.setRegisteredAt(currentTime);
-        spending.setBotUser(botUserRepository.findById(chatId).orElse(null));
-        spending.setSpentAt(date);
-        spending.setTypeOfPurchase(typeOfPurchase);
-        spending.setShopName(shopName);
-        spending.setDescription(descriptionOfPurchase);
-        spending.setSpendingSum(sum);
-        spendingRepository.save(spending);
+        log.info("setSpendingByDate has been started");
+//        Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+//        Spending spending = new Spending();
+//        spending.setRegisteredAt(currentTime);
+//        spending.setBotUser(botUserRepository.findById(chatId).orElse(null));
+//        spending.setSpentAt(date);
+//        spending.setTypeOfPurchase(typeOfPurchase);
+//        spending.setShopName(shopName);
+//        spending.setDescription(descriptionOfPurchase);
+//        spending.setSpendingSum(sum);
+//        spendingRepository.save(spending);
+        sendMessage(chatId,
+                spendingService.saveSpendingByDate(chatId, botUserRepository.findById(chatId).orElse(null),
+                        typeOfPurchase, shopName, descriptionOfPurchase, sum, date));
         shopName = null;
         descriptionOfPurchase = null;
         typeOfPurchase = null;
         spentSum = null;
         marker = Marker.NONE;
         spendingDate = null;
-        if (!spendingRepository.findById(spending.getSpendingId()).isEmpty()) {
-            sendMessage(chatId, "The provided data about your recent spending has been successfully saved.");
-        }
+//        if (!spendingRepository.findById(spending.getSpendingId()).isEmpty()) {
+//            sendMessage(chatId, "The provided data about your recent spending has been successfully saved.");
+//        }
     }
 
     public void setSpendingByDateProcess(long chatId) {
-//        log.info("setSpendingByDateProcess method was called by " + chatId);
+        log.info("setSpendingByDateProcess method was called by " + chatId);
         marker = Marker.SPENDING_DATE_IDENTIFICATOR;
         sendMessage(chatId, "Enter the date of this spending in format (DD-MM-YYYY):");
     }

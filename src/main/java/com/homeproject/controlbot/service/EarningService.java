@@ -9,8 +9,8 @@ import java.sql.Timestamp;
 import java.util.List;
 
 public interface EarningService {
-    boolean saveEarning(long chatId, Timestamp date, BotUser botUser, TypeOfEarning typeOfEarning, BigDecimal earnedSum);
-    boolean saveEarningByDate(long chatId, Timestamp date, BotUser botUser, TypeOfEarning typeOfEarning, BigDecimal earnedSum);
+    String saveEarning(long chatId, Timestamp date, BotUser botUser, TypeOfEarning typeOfEarning, BigDecimal earnedSum);
+    String saveEarningByDate(long chatId, Timestamp date, BotUser botUser, TypeOfEarning typeOfEarning, BigDecimal earnedSum);
     String deleteEarning(long id, long chatIdCheck);
     List<Earning> findAllEarning(long chatId);
     List<Earning> findAllEarningOfTheYear(int year, long chatId);

@@ -1,12 +1,18 @@
 package com.homeproject.controlbot.service;
 
 import com.homeproject.controlbot.comparator.SpendingDateComparator;
+import com.homeproject.controlbot.configuration.BotConfig;
+import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Spending;
+import com.homeproject.controlbot.enums.Marker;
+import com.homeproject.controlbot.enums.TypeOfPurchase;
 import com.homeproject.controlbot.repository.SpendingRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -89,6 +95,34 @@ public class SpendingServiceImpl implements SpendingService{
                 .filter(y -> (y.getSpentAt().toLocalDateTime().getMonth().getValue() == spentMonth))
                 .filter(y -> (y.getSpentAt().toLocalDateTime().getDayOfMonth() == spentDay))
                 .toList();
+    }
+
+    @Override
+    public String saveSpending(long chatId, BotUser botUser, TypeOfPurchase typeOfPurchase, String shopName,
+                              String descriptionOfPurchase, BigDecimal spentSum, Timestamp date) {
+        log.info("saveSpending has been started");
+        Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+        return saveSpendingByDate(chatId, botUser, typeOfPurchase, shopName, descriptionOfPurchase,
+                spentSum, date);
+    }
+    @Override
+    public String saveSpendingByDate(long chatId, BotUser botUser, TypeOfPurchase typeOfPurchase, String shopName,
+                                     String descriptionOfPurchase, BigDecimal sum, Timestamp date) {
+        log.info("saveSpendingByDate has been started");
+        Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+        Spending spending = new Spending();
+        spending.setRegisteredAt(currentTime);
+        spending.setBotUser(botUser);
+        spending.setSpentAt(date);
+        spending.setTypeOfPurchase(typeOfPurchase);
+        spending.setShopName(shopName);
+        spending.setDescription(descriptionOfPurchase);
+        spending.setSpendingSum(sum);
+        spendingRepository.save(spending);
+        if (spendingRepository.findById(spending.getSpendingId()).isPresent()) {
+            return  "The provided data about your recent spending has been successfully saved.";
+        }
+        return "The data hasn't been saved. Try again.";
     }
 
 }
