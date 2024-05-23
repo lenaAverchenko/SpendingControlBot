@@ -216,15 +216,15 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         dateIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case SET_EARNING:
-//                        log.info("SET_EARNING switch was reached");
+                        log.info("SET_EARNING switch was reached");
                         if (typeOfEarning != null) {
                             String numberPattern = "^\\d*\\.?\\d+$";
-//                            log.info("SET_EARNING switch was reached & typeOfEarning != null");
+                            log.info("SET_EARNING switch was reached & typeOfEarning != null");
                             if (Pattern.matches(numberPattern, receivedMessageText)) {
-//                                log.info("EARNING_DATE_IDENTIFICATOR switch was reached and pattern was a match");
-//                                log.info("input text is: " + receivedMessageText);
+                                log.info("EARNING_DATE_IDENTIFICATOR switch was reached and pattern was a match");
+                                log.info("input text is: " + receivedMessageText);
                                 earnedSum = new BigDecimal(receivedMessageText);
-//                                log.info("sum is: " + earnedSum);
+                                log.info("sum is: " + earnedSum);
                                 if (earningDate == null) {
                                     setEarning(chatId, earnedSum);
                                 } else {
@@ -232,7 +232,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                                     try {
                                         setEarningByDate(chatId, earnedSum, new Timestamp((dateFormat.parse(earningDate).getTime())));
                                     } catch (ParseException e) {
-//                                        log.error("An error occurred with parsing string to date: " + e.getMessage());
+                                        log.error("An error occurred with parsing string to date: " + e.getMessage());
                                         sendMessage(chatId, "The provided date doesn't exist. Try again.");
                                         earnedSum = null;
                                         typeOfEarning = null;
@@ -242,7 +242,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                             } else {
                                 earnedSum = null;
                                 typeOfEarning = null;
-//                                log.error("The error occurred with earnedSum - format parsing.");
+                                log.error("The error occurred with earnedSum - format parsing.");
                                 sendMessage(chatId, "Wrong format of the earned sum. You can try again pressing /start");
                             }
                         }
@@ -292,20 +292,12 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                                     } catch (ParseException e) {
                                         log.error("An error occurred with parsing string to date: " + e.getMessage());
                                         sendMessage(chatId, "The provided date doesn't exist. Try again.");
-                                        spentSum = null;
-                                        typeOfPurchase = null;
-                                        spendingDate = null;
-                                        descriptionOfPurchase = null;
-                                        shopName = null;
+                                        clearTheSpendingData();
                                     }
                                 }
                             } else {
-                                spentSum = null;
-                                typeOfPurchase = null;
-                                spendingDate = null;
-                                descriptionOfPurchase = null;
-                                shopName = null;
-//                                log.error("The error occurred with earnedSum - format parsing.");
+                                clearTheSpendingData();
+                                log.error("The error occurred with earnedSum - format parsing.");
                                 sendMessage(chatId, "Wrong format of the spent sum. You can try again by pressing /start");
                             }
                         }
@@ -315,68 +307,35 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         dateIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case START_DATE_PROFIT:
-//                        log.info("START_DATE_PROFIT switch was reached");
-                        String startDatePattern = "\\d{2}-\\d{2}-\\d{4}";
-                        if (Pattern.matches(startDatePattern, receivedMessageText)) {
-//                            log.info("START_DATE_PROFIT switch was reached and pattern matches");
-                            startDateProfit = receivedMessageText;
-                            marker = Marker.END_DATE_PROFIT;
-                            sendMessage(chatId, "Please, enter the initial date in format DD-MM-YYYY to start the calculating process: ");
-
-                        } else {
-//                            log.info("START_DATE_PROFIT switch was reached and pattern wasn't a match");
-                            sendMessage(chatId, "The provided date has wrong format. You can try again by pressing /start.");
-                            startDateProfit = null;
-                            marker = Marker.NONE;
-                        }
+                        log.info("START_DATE_PROFIT switch was reached");
+                        dateIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case END_DATE_PROFIT:
-//                        log.info("END_DATE_PROFIT switch was reached");
-                        String endDatePattern = "\\d{2}-\\d{2}-\\d{4}";
-                        if (Pattern.matches(endDatePattern, receivedMessageText)) {
-//                            log.info("END_DATE_PROFIT switch was reached and pattern matches");
-                            marker = Marker.NONE;
-                            calculateProfitOfTheSelectedPeriod(chatId, startDateProfit, receivedMessageText);
-                        } else {
-//                            log.info("START_DATE_PROFIT switch was reached and pattern wasn't a match");
-                            sendMessage(chatId, "The provided date has wrong format. You can try again by pressing /start.");
-                            startDateProfit = null;
-                            marker = Marker.NONE;
-                        }
+                        log.info("END_DATE_PROFIT switch was reached");
+                        dateIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case MONTH_PROFIT:
-//                        log.info("MONTH_PROFIT marker. Received info: " + receivedMessageText);
-                        String monthProfitPattern = "^([1-9]|1[0-2])$";
-                        if (Pattern.matches(monthProfitPattern, receivedMessageText)) {
-                            marker = Marker.YEAR_PROFIT;
-                            monthIndicator = Integer.parseInt(receivedMessageText);
-                            sendMessage(chatId,
-                                    "Please, enter the year to calculate profit: ");
-                        } else {
-                            marker = Marker.NONE;
-//                            log.info("Pattern doesn't match the month: " + receivedMessageText + ". For the user: " + currentId);
-                            sendMessage(chatId, "The format of the month is not correct. " +
-                                    "It must be 1-12. You can try again by pressing /start and choosing one of the options.");
-                        }
+                        log.info("MONTH_PROFIT marker. Received info: " + receivedMessageText);
+                        someMonthIdentifierReceived(chatId, receivedMessageText);
                         break;
                     case YEAR_PROFIT:
-//                        log.info("Received info: " + receivedMessageText);
+                        log.info("Received info: " + receivedMessageText);
                         String yearProfitPattern = "^\\d{4}$";
                         if (Pattern.matches(yearProfitPattern, receivedMessageText)) {
                             int yearIndicator = Integer.parseInt(receivedMessageText);
                             if (monthIndicator == 0) {
-//                                log.info("YEAR_PROFIT & monthIndicator == 0. Received message " + receivedMessageText);
+                                log.info("YEAR_PROFIT & monthIndicator == 0. Received message " + receivedMessageText);
                                 calculateProfitOfTheYear(chatId, yearIndicator);
                                 yearIndicator = 0;
                             } else if (monthIndicator != 0) {
-//                                log.info("YEAR_PROFIT & monthIndicator != 0. Received message " + receivedMessageText);
+                                log.info("YEAR_PROFIT & monthIndicator != 0. Received message " + receivedMessageText);
                                 calculateProfitOfTheMonth(chatId, yearIndicator, monthIndicator);
                                 monthIndicator = 0;
                             }
                             marker = Marker.NONE;
                         } else {
                             marker = Marker.NONE;
-//                            log.info("Pattern doesn't match the year: " + receivedMessageText + ". For the user: " + currentId);
+                            log.info("Pattern doesn't match the year: " + receivedMessageText + ". For the user: " + currentId);
                             sendMessage(chatId, "The format of the year is not correct. " +
                                     "It must be XXXX. You can try again by pressing /start and choosing one of the options.");
                         }
@@ -411,24 +370,16 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                     answerText = "I won't delete the data for your account. You can press start to continue.";
                     break;
                 case "SALARY_BUTTON":
-                    log.info("SALARY_BUTTON" + chatId);
-                    typeOfEarning = TypeOfEarning.SALARY;
-                    setEarningProcess(chatId);
+                    setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.SALARY);
                     break;
                 case "CHILD_SUPPORT_BUTTON":
-                    log.info("CHILD_SUPPORT_BUTTON" + chatId);
-                    typeOfEarning = TypeOfEarning.CHILD_SUPPORT;
-                    setEarningProcess(chatId);
+                    setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.CHILD_SUPPORT);
                     break;
                 case "PRISE_BUTTON":
-                    log.info("PRISE_BUTTON" + chatId);
-                    typeOfEarning = TypeOfEarning.PRISE;
-                    setEarningProcess(chatId);
+                    setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.PRISE);
                     break;
                 case "GIFT_BUTTON":
-                    log.info("GIFT_BUTTON" + chatId);
-                    typeOfEarning = TypeOfEarning.GIFT;
-                    setEarningProcess(chatId);
+                    setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.GIFT);
                     break;
                 case "All earnings_BUTTON":
                     log.info("All earnings_BUTTON" + chatId);
@@ -461,79 +412,49 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                     sendMessage(chatId, "Please, enter the correct day from 1-31: ");
                     break;
                 case "ELECTRONICS_BUTTON":
-                    log.info("ELECTRONICS_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.ELECTRONICS;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.ELECTRONICS);
                     break;
                 case "TAXI_BUS_BUTTON":
-                    log.info("TAXI_BUS_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.TAXI_BUS;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.TAXI_BUS);
                     break;
                 case "CAR_BUTTON":
-                    log.info("CAR_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.CAR;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR);
                     break;
                 case "CAR_PARTS_BUTTON":
-                    log.info("CAR_PARTS_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.CAR_PARTS;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR_PARTS);
                     break;
                 case "CAR_REPAIR_BUTTON":
-                    log.info("CAR_REPAIR_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.CAR_REPAIR;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR_REPAIR);
                     break;
                 case "FOOD_BUTTON":
-                    log.info("FOOD_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.FOOD;
-                    setEarningProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.FOOD);
                     break;
                 case "SOFT_DRINK_BUTTON":
-                    log.info("SOFT_DRINK_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.SOFT_DRINK;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.SOFT_DRINK);
                     break;
                 case "ALCOHOL_BUTTON":
-                    log.info("ALCOHOL_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.ALCOHOL;
-                    setEarningProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.ALCOHOL);
                     break;
                 case "SWEETS_AND_COOKIES_BUTTON":
-                    log.info("SWEETS_AND_COOKIES_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.SWEETS_AND_COOKIES;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.SWEETS_AND_COOKIES);
                     break;
                 case "RESTAURANT_BUTTON":
-                    log.info("RESTAURANT_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.RESTAURANT;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.RESTAURANT);
                     break;
                 case "RESORT_BUTTON":
-                    log.info("RESORT_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.RESORT;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.RESORT);
                     break;
                 case "STATIONARY_BUTTON":
-                    log.info("STATIONARY_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.STATIONARY;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.STATIONARY);
                     break;
                 case "HOME_STUFF_BUTTON":
-                    log.info("HOME_STUFF_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.HOME_STUFF;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.HOME_STUFF);
                     break;
                 case "CLOTHES_BUTTON":
-                    log.info("CLOTHES_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.CLOTHES;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CLOTHES);
                     break;
                 case "FOOTWEAR_BUTTON":
-                    log.info("FOOTWEAR_BUTTON" + chatId);
-                    typeOfPurchase = TypeOfPurchase.FOOTWEAR;
-                    setSpendingProcess(chatId);
+                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.FOOTWEAR);
                     break;
                 case "All info about my spending_BUTTON":
                     log.info("All info about my spending_BUTTON " + chatId);
@@ -611,6 +532,18 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             sendMessageWithButtons(message.getChatId(), "But first of all. Do you truly want to register and continue?", List.of(List.of("YES", "NO")));
             log.info("registration question was asked");
         }
+    }
+
+    public void setMarkerAndEarningProcess(long chatId, String message, TypeOfEarning typeToSet) {
+        log.info(message + ": " + chatId);
+        typeOfEarning = typeToSet;
+        setEarningProcess(chatId);
+    }
+
+    public void setMarkerAndSpendingProcess(long chatId, String message, TypeOfPurchase typeToSet) {
+        log.info(message + chatId);
+        typeOfPurchase = typeToSet;
+        setSpendingProcess(chatId);
     }
 
     public String registrationPermittedAct(Message message) {
@@ -694,10 +627,12 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                 marker = Marker.SOME_YEAR_EARNINGS;
             } else if (marker == Marker.SOME_MONTH_SPENDING) {
                 marker = Marker.SOME_YEAR_SPENDING;
+            } else if (marker == Marker.MONTH_PROFIT) {
+                marker = Marker.YEAR_PROFIT;
             }
             monthIndicator = Integer.parseInt(receivedMessageText);
             sendMessage(chatId,
-                    "Please, enter the year: ");
+                    "Please, enter the year to go to other steps: ");
         } else {
             marker = Marker.NONE;
             log.info("Pattern doesn't match the month: " + receivedMessageText + ". For the user: " + currentId);
@@ -742,6 +677,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         currentId = null;
     }
 
+
     public void dateIdentifierReceived(long chatId, String receivedMessageText) {
         String dataPattern = "\\d{2}-\\d{2}-\\d{4}";
         if (Pattern.matches(dataPattern, receivedMessageText)) {
@@ -753,12 +689,22 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                 log.info("SPENDING_DATE_IDENTIFICATOR switch was reached and pattern matches");
                 spendingDate = receivedMessageText;
                 setSpendingProcess(chatId);
+            } else if (marker == Marker.END_DATE_PROFIT) {
+                log.info("END_DATE_PROFIT switch was reached and pattern matches");
+                marker = Marker.NONE;
+                calculateProfitOfTheSelectedPeriod(chatId, startDateProfit, receivedMessageText);
+            } else if (marker == Marker.START_DATE_PROFIT) {
+                log.info("START_DATE_PROFIT switch was reached and pattern matches");
+                startDateProfit = receivedMessageText;
+                marker = Marker.END_DATE_PROFIT;
+                sendMessage(chatId, "Please, enter the initial date in format DD-MM-YYYY to start the calculating process: ");
             }
         } else {
             log.info(marker.toString() + " switch was reached and pattern wasn't a match");
             sendMessage(chatId, "The provided date has wrong format. You can try again by pressing /start.");
             earningDate = null;
             spendingDate = null;
+            startDateProfit = null;
             marker = Marker.NONE;
         }
     }
@@ -887,12 +833,16 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             log.info("Wrong data in a process of executing the method. Clearing the data.");
             sendMessage(chatId, "There's been a mistake. If you want to retry, you can " +
                     "send /settodayspending or /setspending again.");
-            spentSum = null;
-            typeOfPurchase = null;
-            spendingDate = null;
-            descriptionOfPurchase = null;
-            shopName = null;
+            clearTheSpendingData();
         }
+    }
+
+    public void clearTheSpendingData() {
+        spentSum = null;
+        typeOfPurchase = null;
+        spendingDate = null;
+        descriptionOfPurchase = null;
+        shopName = null;
     }
 
 
@@ -902,12 +852,8 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         sendMessage(chatId,
                 spendingService.saveSpendingByDate(chatId, botUserRepository.findById(chatId).orElse(null),
                         typeOfPurchase, shopName, descriptionOfPurchase, sum, date));
-        shopName = null;
-        descriptionOfPurchase = null;
-        typeOfPurchase = null;
-        spentSum = null;
+        clearTheSpendingData();
         marker = Marker.NONE;
-        spendingDate = null;
     }
 
     public void setSpendingByDateProcess(long chatId) {
