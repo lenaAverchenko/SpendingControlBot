@@ -3,7 +3,6 @@ package com.homeproject.controlbot.service;
 import com.homeproject.controlbot.comparator.EarningDateComparator;
 import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Earning;
-import com.homeproject.controlbot.enums.Marker;
 import com.homeproject.controlbot.enums.TypeOfEarning;
 import com.homeproject.controlbot.repository.EarningRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 
 @Slf4j

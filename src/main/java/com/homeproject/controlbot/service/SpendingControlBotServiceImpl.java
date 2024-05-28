@@ -6,6 +6,7 @@ import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.enums.Marker;
 import com.homeproject.controlbot.enums.TypeOfEarning;
 import com.homeproject.controlbot.enums.TypeOfPurchase;
+import com.homeproject.controlbot.exceptions.DataDoesNotExistException;
 import com.homeproject.controlbot.helper.ButtonAndListCreator;
 import com.homeproject.controlbot.helper.ProfitCalculator;
 import com.homeproject.controlbot.repository.AutomatedMessageRepository;
@@ -28,7 +29,6 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.text.ParseException;
@@ -93,7 +93,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             "Type /deletedata to delete stored info about your account\n\n" +
             "Type /help to see this message again.";
 
-    //    private SpendingControlBotServiceImpl(BotConfig botConfig) {
     public SpendingControlBotServiceImpl(BotConfig botConfig) {
         this.botConfig = botConfig;
         List<BotCommand> listOfCommands = new ArrayList<>();
@@ -119,407 +118,411 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            Message receivedMessage = update.getMessage();
-            String receivedMessageText = receivedMessage.getText();
-            long chatId = receivedMessage.getChatId();
-            String firstNameOfTheUser = receivedMessage.getChat().getFirstName();
-            if (update.getMessage().getText().startsWith("/")) {
-                if (receivedMessageText.contains("/send") && (botConfig.getBotOwnerId() == chatId)) {
-                    log.info("send command was called");
-                    String textToSend = EmojiParser.parseToUnicode(receivedMessageText.substring(
-                            receivedMessageText.indexOf(" ")));
-                    List<BotUser> users = botUserRepository.findAll();
-                    for (BotUser user : users) {
-                        sendMessage(user.getId(), textToSend);
+        try {
+            if (update.hasMessage() && update.getMessage().hasText()) {
+                Message receivedMessage = update.getMessage();
+                String receivedMessageText = receivedMessage.getText();
+                long chatId = receivedMessage.getChatId();
+                String firstNameOfTheUser = receivedMessage.getChat().getFirstName();
+                if (update.getMessage().getText().startsWith("/")) {
+                    if (receivedMessageText.contains("/send") && (botConfig.getBotOwnerId() == chatId)) {
+                        log.info("send command was called");
+                        String textToSend = EmojiParser.parseToUnicode(receivedMessageText.substring(
+                                receivedMessageText.indexOf(" ")));
+                        List<BotUser> users = botUserRepository.findAll();
+                        for (BotUser user : users) {
+                            sendMessage(user.getId(), textToSend);
+                        }
+                    } else {
+                        switch (receivedMessageText) {
+                            case "/start":
+                                marker = Marker.NONE;
+                                log.info("Command /start was called by " + firstNameOfTheUser);
+                                startCommandReceived(chatId, firstNameOfTheUser);
+                                registerBotUser(update);
+                                break;
+                            case "/setearning":
+                                log.info("Command /setearning was called by " + firstNameOfTheUser);
+                                marker = Marker.NONE;
+                                setEarningProcess(chatId);
+                                break;
+                            case "/setearningbydate":
+                                log.info("Command /setearningbydate was called by " + firstNameOfTheUser);
+                                marker = Marker.NONE;
+                                setEarningByDateProcess(chatId);
+                                break;
+                            case "/settodayspending":
+                                marker = Marker.NONE;
+                                setSpendingProcess(chatId);
+                                break;
+                            case "/setspending":
+                                marker = Marker.NONE;
+                                setSpendingByDateProcess(chatId);
+                                break;
+                            case "/calculateprofit":
+                                List<List<String>> listOfOptions = buttonAndListCreator.createListOfLists(List.of("Profit of the current month",
+                                        "Profit of the optional month", "Profit of the current year", "Profit of the optional year",
+                                        "Profit for selected period"));
+                                sendMessageWithButtons(chatId, "Please, choose the period to calculate your profit:", listOfOptions);
+                                break;
+                            case "/findspending":
+                                marker = Marker.NONE;
+                                List<List<String>> allTheSpendingButtons = buttonAndListCreator.createListOfLists(List.of("All info about my spending",
+                                        "Money spent this year", "Money spent the year ...", "Money spent this month",
+                                        "Money spent the month ...", "Money spent today", "Money spent the day ..."));
+                                sendMessageWithButtons(chatId, "Pick the search you want to proceed with: ", allTheSpendingButtons);
+                                break;
+                            case "/findearning":
+                                marker = Marker.NONE;
+                                List<List<String>> allTheButtons = buttonAndListCreator.createListOfLists(List.of(
+                                        "All earnings", "Earnings of this year", "Earnings of the year ...",
+                                        "Earnings of this month", "Earnings of the month ...", "Earnings of the day"));
+                                sendMessageWithButtons(chatId, "Pick the search you want to proceed with: ", allTheButtons);
+                                break;
+                            case "/deletespending":
+                                marker = Marker.DELETE_SPENDING;
+                                sendMessage(chatId, "What is the ID of the spending you want to delete?");
+                                break;
+                            case "/deleteearning":
+                                marker = Marker.DELETE_EARNING;
+                                sendMessage(chatId, "What is the ID of the earning you want to delete?");
+                                break;
+                            case "/data":
+                                marker = Marker.NONE;
+                                sendMessage(chatId, getBotUserInformation(receivedMessage).toString());
+                                break;
+                            case "/deletedata":
+                                marker = Marker.NONE;
+                                deleteBotUserInformation(update);
+                                break;
+                            case "/help":
+                                marker = Marker.NONE;
+                                sendMessage(chatId, HELP_TEXT);
+                                break;
+                            case "/register":
+                                marker = Marker.NONE;
+                                registerBotUser(update);
+                                break;
+                            default:
+                                marker = Marker.NONE;
+                                sendMessage(chatId, "Sorry, the command was not recognized");
+                                break;
+                        }
                     }
                 } else {
-                    switch (receivedMessageText) {
-                        case "/start":
-                            marker = Marker.NONE;
-                            log.info("Command /start was called by " + firstNameOfTheUser);
-                            startCommandReceived(chatId, firstNameOfTheUser);
-                            registerBotUser(update);
+                    switch (marker) {
+                        case EARNING_DATE_IDENTIFICATOR:
+                            log.info("EARNING_DATE_IDENTIFICATOR switch was reached");
+                            dateIdentifierReceived(chatId, receivedMessageText);
                             break;
-                        case "/setearning":
-                            log.info("Command /setearning was called by " + firstNameOfTheUser);
-                            marker = Marker.NONE;
-                            setEarningProcess(chatId);
+                        case SET_EARNING:
+                            log.info("SET_EARNING switch was reached");
+                            if (typeOfEarning != null) {
+                                String numberPattern = "^\\d*\\.?\\d+$";
+                                log.info("SET_EARNING switch was reached & typeOfEarning != null");
+                                if (Pattern.matches(numberPattern, receivedMessageText)) {
+                                    log.info("EARNING_DATE_IDENTIFICATOR switch was reached and pattern was a match");
+                                    log.info("input text is: " + receivedMessageText);
+                                    earnedSum = new BigDecimal(receivedMessageText);
+                                    log.info("sum is: " + earnedSum);
+                                    if (earningDate == null) {
+                                        setEarning(chatId, earnedSum);
+                                    } else {
+                                        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+                                        try {
+                                            setEarningByDate(chatId, earnedSum, new Timestamp((dateFormat.parse(earningDate).getTime())));
+                                        } catch (ParseException e) {
+                                            log.error("An error occurred with parsing string to date: " + e.getMessage());
+                                            sendMessage(chatId, "The provided date doesn't exist. Try again.");
+                                            earnedSum = null;
+                                            typeOfEarning = null;
+                                            earningDate = null;
+                                        }
+                                    }
+                                } else {
+                                    earnedSum = null;
+                                    typeOfEarning = null;
+                                    log.error("The error occurred with earnedSum - format parsing.");
+                                    sendMessage(chatId, "Wrong format of the earned sum. You can try again pressing /start");
+                                }
+                            }
                             break;
-                        case "/setearningbydate":
-                            log.info("Command /setearningbydate was called by " + firstNameOfTheUser);
-                            marker = Marker.NONE;
-                            setEarningByDateProcess(chatId);
+                        case DELETE_EARNING:
+                        case DELETE_SPENDING:
+                            deleteEarningOrSpendingIdentifierReceived(chatId, receivedMessageText);
                             break;
-                        case "/settodayspending":
-                            marker = Marker.NONE;
+                        case SOME_YEAR_EARNINGS:
+                        case SOME_YEAR_SPENDING:
+                            someYearIdentifierReceived(chatId, receivedMessageText);
+                            break;
+                        case SOME_MONTH_EARNING:
+                        case SOME_MONTH_SPENDING:
+                            someMonthIdentifierReceived(chatId, receivedMessageText);
+                            break;
+                        case SOME_DAY_EARNING:
+                        case SOME_DAY_SPENDING:
+                            someDayIdentifierReceived(chatId, receivedMessageText);
+                            break;
+                        case SHOP_NAME:
+                            log.info("SHOP_NAME marker. Received info: " + receivedMessageText);
+                            shopName = receivedMessageText;
                             setSpendingProcess(chatId);
                             break;
-                        case "/setspending":
-                            marker = Marker.NONE;
-                            setSpendingByDateProcess(chatId);
+                        case DESCRIPTION_PURCHASE:
+                            log.info("DESCRIPTION_PURCHASE marker. Received info: " + receivedMessageText);
+                            descriptionOfPurchase = receivedMessageText;
+                            setSpendingProcess(chatId);
                             break;
-                        case "/calculateprofit":
-                            List<List<String>> listOfOptions = buttonAndListCreator.createListOfLists(List.of("Profit of the current month",
-                                    "Profit of the optional month", "Profit of the current year", "Profit of the optional year",
-                                    "Profit for selected period"));
-                            sendMessageWithButtons(chatId, "Please, choose the period to calculate your profit:", listOfOptions);
+                        case SET_SPENDING:
+                            log.info("SET_SPENDING switch was reached");
+                            if (typeOfPurchase != null && shopName != null && descriptionOfPurchase != null) {
+                                String numberPattern = "^\\d*\\.?\\d+$";
+                                log.info("SET_SPENDING switch was reached & typeOfPurchase != null && shopName != null && descriptionOfPurchase != null");
+                                if (Pattern.matches(numberPattern, receivedMessageText)) {
+                                    log.info("SET_SPENDING switch was reached and pattern was a match");
+                                    log.info("input text is: " + receivedMessageText);
+                                    spentSum = new BigDecimal(receivedMessageText);
+                                    log.info("sum is: " + spentSum);
+                                    if (spendingDate == null) {
+                                        setSpending(chatId, spentSum);
+                                    } else {
+                                        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+                                        try {
+                                            setSpendingByDate(chatId, spentSum, new Timestamp((dateFormat.parse(spendingDate).getTime())));
+                                        } catch (ParseException e) {
+                                            log.error("An error occurred with parsing string to date: " + e.getMessage());
+                                            sendMessage(chatId, "The provided date doesn't exist. Try again.");
+                                            clearTheSpendingData();
+                                        }
+                                    }
+                                } else {
+                                    clearTheSpendingData();
+                                    log.error("The error occurred with earnedSum - format parsing.");
+                                    sendMessage(chatId, "Wrong format of the spent sum. You can try again by pressing /start");
+                                }
+                            }
                             break;
-                        case "/findspending":
-                            marker = Marker.NONE;
-                            List<List<String>> allTheSpendingButtons = buttonAndListCreator.createListOfLists(List.of("All info about my spending",
-                                    "Money spent this year", "Money spent the year ...", "Money spent this month",
-                                    "Money spent the month ...", "Money spent today", "Money spent the day ..."));
-                            sendMessageWithButtons(chatId, "Pick the search you want to proceed with: ", allTheSpendingButtons);
+                        case SPENDING_DATE_IDENTIFICATOR:
+                            log.info("SPENDING_DATE_IDENTIFICATOR switch was reached");
+                            dateIdentifierReceived(chatId, receivedMessageText);
                             break;
-                        case "/findearning":
-                            marker = Marker.NONE;
-                            List<List<String>> allTheButtons = buttonAndListCreator.createListOfLists(List.of(
-                                    "All earnings", "Earnings of this year", "Earnings of the year ...",
-                                    "Earnings of this month", "Earnings of the month ...", "Earnings of the day"));
-                            sendMessageWithButtons(chatId, "Pick the search you want to proceed with: ", allTheButtons);
+                        case START_DATE_PROFIT:
+                            log.info("START_DATE_PROFIT switch was reached");
+                            dateIdentifierReceived(chatId, receivedMessageText);
                             break;
-                        case "/deletespending":
-                            marker = Marker.DELETE_SPENDING;
-                            sendMessage(chatId, "What is the ID of the spending you want to delete?");
+                        case END_DATE_PROFIT:
+                            log.info("END_DATE_PROFIT switch was reached");
+                            dateIdentifierReceived(chatId, receivedMessageText);
                             break;
-                        case "/deleteearning":
-                            marker = Marker.DELETE_EARNING;
-                            sendMessage(chatId, "What is the ID of the earning you want to delete?");
+                        case MONTH_PROFIT:
+                            log.info("MONTH_PROFIT marker. Received info: " + receivedMessageText);
+                            someMonthIdentifierReceived(chatId, receivedMessageText);
                             break;
-                        case "/data":
-                            marker = Marker.NONE;
-                            sendMessage(chatId, getBotUserInformation(receivedMessage).toString());
-                            break;
-                        case "/deletedata":
-                            marker = Marker.NONE;
-                            deleteBotUserInformation(update);
-                            break;
-                        case "/help":
-                            marker = Marker.NONE;
-                            sendMessage(chatId, HELP_TEXT);
-                            break;
-                        case "/register":
-                            marker = Marker.NONE;
-                            registerBotUser(update);
+                        case YEAR_PROFIT:
+                            log.info("Received info: " + receivedMessageText);
+                            String yearProfitPattern = "^\\d{4}$";
+                            if (Pattern.matches(yearProfitPattern, receivedMessageText)) {
+                                int yearIndicator = Integer.parseInt(receivedMessageText);
+                                if (monthIndicator == 0) {
+                                    log.info("YEAR_PROFIT & monthIndicator == 0. Received message " + receivedMessageText);
+                                    calculateProfitOfTheYear(chatId, yearIndicator);
+                                    yearIndicator = 0;
+                                } else if (monthIndicator != 0) {
+                                    log.info("YEAR_PROFIT & monthIndicator != 0. Received message " + receivedMessageText);
+                                    calculateProfitOfTheMonth(chatId, yearIndicator, monthIndicator);
+                                    monthIndicator = 0;
+                                }
+                                marker = Marker.NONE;
+                            } else {
+                                marker = Marker.NONE;
+                                log.info("Pattern doesn't match the year: " + receivedMessageText + ". For the user: " + currentId);
+                                sendMessage(chatId, "The format of the year is not correct. " +
+                                        "It must be XXXX. You can try again by pressing /start and choosing one of the options.");
+                            }
                             break;
                         default:
-                            marker = Marker.NONE;
-                            sendMessage(chatId, "Sorry, the command was not recognized");
+                            sendMessage(chatId, "Command was not correct");
                             break;
                     }
                 }
-            } else {
-                switch (marker) {
-                    case EARNING_DATE_IDENTIFICATOR:
-                        log.info("EARNING_DATE_IDENTIFICATOR switch was reached");
-                        dateIdentifierReceived(chatId, receivedMessageText);
+
+            } else if (update.hasCallbackQuery()) {
+                String callBackData = update.getCallbackQuery().getData();
+                Message callbackMessage = update.getCallbackQuery().getMessage();
+                long messageId = callbackMessage.getMessageId();
+                long chatId = callbackMessage.getChatId();
+                String answerText = null;
+                switch (callBackData) {
+                    case "YES_BUTTON":
+                        answerText = registrationPermittedAct(callbackMessage);
                         break;
-                    case SET_EARNING:
-                        log.info("SET_EARNING switch was reached");
-                        if (typeOfEarning != null) {
-                            String numberPattern = "^\\d*\\.?\\d+$";
-                            log.info("SET_EARNING switch was reached & typeOfEarning != null");
-                            if (Pattern.matches(numberPattern, receivedMessageText)) {
-                                log.info("EARNING_DATE_IDENTIFICATOR switch was reached and pattern was a match");
-                                log.info("input text is: " + receivedMessageText);
-                                earnedSum = new BigDecimal(receivedMessageText);
-                                log.info("sum is: " + earnedSum);
-                                if (earningDate == null) {
-                                    setEarning(chatId, earnedSum);
-                                } else {
-                                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-                                    try {
-                                        setEarningByDate(chatId, earnedSum, new Timestamp((dateFormat.parse(earningDate).getTime())));
-                                    } catch (ParseException e) {
-                                        log.error("An error occurred with parsing string to date: " + e.getMessage());
-                                        sendMessage(chatId, "The provided date doesn't exist. Try again.");
-                                        earnedSum = null;
-                                        typeOfEarning = null;
-                                        earningDate = null;
-                                    }
-                                }
-                            } else {
-                                earnedSum = null;
-                                typeOfEarning = null;
-                                log.error("The error occurred with earnedSum - format parsing.");
-                                sendMessage(chatId, "Wrong format of the earned sum. You can try again pressing /start");
-                            }
-                        }
+                    case "NO_BUTTON":
+                        answerText = "You pressed NO button. Access to the Bot is not allowed. Try again";
                         break;
-                    case DELETE_EARNING:
-                    case DELETE_SPENDING:
-                        deleteEarningOrSpendingIdentifierReceived(chatId, receivedMessageText);
+                    case "YES_DELETE_BUTTON":
+                        log.info("yes delete button pressed");
+                        botUserRepository.delete(Objects.requireNonNull(botUserRepository.findById(chatId)).orElse(null));
+                        answerText = "Data for your account has been deleted.";
+                        log.info("information about the user is deleted");
                         break;
-                    case SOME_YEAR_EARNINGS:
-                    case SOME_YEAR_SPENDING:
-                        someYearIdentifierReceived(chatId, receivedMessageText);
+                    case "NO_DELETE_BUTTON":
+                        log.info("no button pressed");
+                        answerText = "I won't delete the data for your account. You can press start to continue.";
                         break;
-                    case SOME_MONTH_EARNING:
-                    case SOME_MONTH_SPENDING:
-                        someMonthIdentifierReceived(chatId, receivedMessageText);
+                    case "SALARY_BUTTON":
+                        setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.SALARY);
                         break;
-                    case SOME_DAY_EARNING:
-                    case SOME_DAY_SPENDING:
-                        someDayIdentifierReceived(chatId, receivedMessageText);
+                    case "CHILD_SUPPORT_BUTTON":
+                        setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.CHILD_SUPPORT);
                         break;
-                    case SHOP_NAME:
-                        log.info("SHOP_NAME marker. Received info: " + receivedMessageText);
-                        shopName = receivedMessageText;
-                        setSpendingProcess(chatId);
+                    case "PRISE_BUTTON":
+                        setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.PRISE);
                         break;
-                    case DESCRIPTION_PURCHASE:
-                        log.info("DESCRIPTION_PURCHASE marker. Received info: " + receivedMessageText);
-                        descriptionOfPurchase = receivedMessageText;
-                        setSpendingProcess(chatId);
+                    case "GIFT_BUTTON":
+                        setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.GIFT);
                         break;
-                    case SET_SPENDING:
-                        log.info("SET_SPENDING switch was reached");
-                        if (typeOfPurchase != null && shopName != null && descriptionOfPurchase != null) {
-                            String numberPattern = "^\\d*\\.?\\d+$";
-                            log.info("SET_SPENDING switch was reached & typeOfPurchase != null && shopName != null && descriptionOfPurchase != null");
-                            if (Pattern.matches(numberPattern, receivedMessageText)) {
-                                log.info("SET_SPENDING switch was reached and pattern was a match");
-                                log.info("input text is: " + receivedMessageText);
-                                spentSum = new BigDecimal(receivedMessageText);
-                                log.info("sum is: " + spentSum);
-                                if (spendingDate == null) {
-                                    setSpending(chatId, spentSum);
-                                } else {
-                                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-                                    try {
-                                        setSpendingByDate(chatId, spentSum, new Timestamp((dateFormat.parse(spendingDate).getTime())));
-                                    } catch (ParseException e) {
-                                        log.error("An error occurred with parsing string to date: " + e.getMessage());
-                                        sendMessage(chatId, "The provided date doesn't exist. Try again.");
-                                        clearTheSpendingData();
-                                    }
-                                }
-                            } else {
-                                clearTheSpendingData();
-                                log.error("The error occurred with earnedSum - format parsing.");
-                                sendMessage(chatId, "Wrong format of the spent sum. You can try again by pressing /start");
-                            }
-                        }
+                    case "All earnings_BUTTON":
+                        log.info("All earnings_BUTTON" + chatId);
+                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                earningService.findAllEarning(chatId)).toString());
                         break;
-                    case SPENDING_DATE_IDENTIFICATOR:
-                        log.info("SPENDING_DATE_IDENTIFICATOR switch was reached");
-                        dateIdentifierReceived(chatId, receivedMessageText);
+                    case "Earnings of this year_BUTTON":
+                        log.info("Earnings of this year_BUTTON" + chatId);
+                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                earningService.findAllEarningOfTheCurrentYear(chatId)).toString());
                         break;
-                    case START_DATE_PROFIT:
-                        log.info("START_DATE_PROFIT switch was reached");
-                        dateIdentifierReceived(chatId, receivedMessageText);
+                    case "Earnings of the year ..._BUTTON":
+                        log.info("Earnings of the year_BUTTON" + chatId);
+                        marker = Marker.SOME_YEAR_EARNINGS;
+                        sendMessage(chatId, "Please, enter the correct year: ");
                         break;
-                    case END_DATE_PROFIT:
-                        log.info("END_DATE_PROFIT switch was reached");
-                        dateIdentifierReceived(chatId, receivedMessageText);
+                    case "Earnings of this month_BUTTON":
+                        log.info("Earnings of this month_BUTTON" + chatId);
+                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                earningService.findAllEarningOfTheCurrentMonth(chatId)).toString());
                         break;
-                    case MONTH_PROFIT:
-                        log.info("MONTH_PROFIT marker. Received info: " + receivedMessageText);
-                        someMonthIdentifierReceived(chatId, receivedMessageText);
+                    case "Earnings of the month ..._BUTTON":
+                        log.info("Earnings of the month ..._BUTTON" + chatId);
+                        marker = Marker.SOME_MONTH_EARNING;
+                        sendMessage(chatId, "Please, enter the correct month from 1-12: ");
                         break;
-                    case YEAR_PROFIT:
-                        log.info("Received info: " + receivedMessageText);
-                        String yearProfitPattern = "^\\d{4}$";
-                        if (Pattern.matches(yearProfitPattern, receivedMessageText)) {
-                            int yearIndicator = Integer.parseInt(receivedMessageText);
-                            if (monthIndicator == 0) {
-                                log.info("YEAR_PROFIT & monthIndicator == 0. Received message " + receivedMessageText);
-                                calculateProfitOfTheYear(chatId, yearIndicator);
-                                yearIndicator = 0;
-                            } else if (monthIndicator != 0) {
-                                log.info("YEAR_PROFIT & monthIndicator != 0. Received message " + receivedMessageText);
-                                calculateProfitOfTheMonth(chatId, yearIndicator, monthIndicator);
-                                monthIndicator = 0;
-                            }
-                            marker = Marker.NONE;
-                        } else {
-                            marker = Marker.NONE;
-                            log.info("Pattern doesn't match the year: " + receivedMessageText + ". For the user: " + currentId);
-                            sendMessage(chatId, "The format of the year is not correct. " +
-                                    "It must be XXXX. You can try again by pressing /start and choosing one of the options.");
-                        }
+                    case "Earnings of the day_BUTTON":
+                        log.info("Earnings of the month ..._BUTTON" + chatId);
+                        marker = Marker.SOME_DAY_EARNING;
+                        sendMessage(chatId, "Please, enter the correct day from 1-31: ");
+                        break;
+                    case "ELECTRONICS_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.ELECTRONICS);
+                        break;
+                    case "TAXI_BUS_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.TAXI_BUS);
+                        break;
+                    case "CAR_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR);
+                        break;
+                    case "CAR_PARTS_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR_PARTS);
+                        break;
+                    case "CAR_REPAIR_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR_REPAIR);
+                        break;
+                    case "FOOD_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.FOOD);
+                        break;
+                    case "SOFT_DRINK_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.SOFT_DRINK);
+                        break;
+                    case "ALCOHOL_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.ALCOHOL);
+                        break;
+                    case "SWEETS_AND_COOKIES_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.SWEETS_AND_COOKIES);
+                        break;
+                    case "RESTAURANT_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.RESTAURANT);
+                        break;
+                    case "RESORT_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.RESORT);
+                        break;
+                    case "STATIONARY_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.STATIONARY);
+                        break;
+                    case "HOME_STUFF_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.HOME_STUFF);
+                        break;
+                    case "CLOTHES_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CLOTHES);
+                        break;
+                    case "FOOTWEAR_BUTTON":
+                        setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.FOOTWEAR);
+                        break;
+                    case "All info about my spending_BUTTON":
+                        log.info("All info about my spending_BUTTON " + chatId);
+                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                spendingService.findAllSpending(chatId)).toString());
+                        break;
+                    case "Money spent this year_BUTTON":
+                        log.info("Money spent this year_BUTTON " + chatId);
+                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                spendingService.findAllSpendingOfTheCurrentYear(chatId)).toString());
+                        break;
+                    case "Money spent the year ..._BUTTON":
+                        log.info("Money spent the year ..._BUTTON " + chatId);
+                        marker = Marker.SOME_YEAR_SPENDING;
+                        sendMessage(chatId, "Please, enter the correct year: ");
+                        break;
+                    case "Money spent this month_BUTTON":
+                        log.info("Money spent this month_BUTTON " + chatId);
+                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                spendingService.findAllSpendingOfTheCurrentMonth(chatId)).toString());
+                        break;
+                    case "Money spent the month ..._BUTTON":
+                        log.info("Money spent the month ..._BUTTON " + chatId);
+                        marker = Marker.SOME_MONTH_SPENDING;
+                        sendMessage(chatId, "Please, enter the correct month from 1-12: ");
+                        break;
+                    case "Money spent today_BUTTON":
+                        log.info("Money spent today_BUTTON " + chatId);
+                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                                spendingService.findAllSpendingOfTheCurrentDay(chatId)).toString());
+                        break;
+                    case "Money spent the day ..._BUTTON":
+                        log.info("Money spent the day ..._BUTTON " + chatId);
+                        marker = Marker.SOME_DAY_SPENDING;
+                        sendMessage(chatId, "Please, enter the correct day from 1-31: ");
+                        break;
+                    case "Profit of the current month_BUTTON":
+                        log.info("Profit of the current month_BUTTON " + chatId);
+                        calculateProfitOfTheCurrentMonth(chatId);
+                        break;
+                    case "Profit of the optional month_BUTTON":
+                        log.info("Profit of the optional month_BUTTON " + chatId);
+                        marker = Marker.MONTH_PROFIT;
+                        sendMessage(chatId, "Please, enter the month, when you want to calculate profit: ");
+                        break;
+                    case "Profit of the current year_BUTTON":
+                        log.info("Profit of the current year_BUTTON " + chatId);
+                        calculateProfitOfTheCurrentYear(chatId);
+                        break;
+                    case "Profit of the optional year_BUTTON":
+                        log.info("Profit of the optional year_BUTTON " + chatId);
+                        marker = Marker.YEAR_PROFIT;
+                        sendMessage(chatId, "Please, enter the year, when you want to calculate profit: ");
+                        break;
+                    case "Profit for selected period_BUTTON":
+                        log.info("Profit for selected period_BUTTON " + chatId);
+                        marker = Marker.START_DATE_PROFIT;
+                        sendMessage(chatId, "Please, enter the initial date in format DD-MM-YYYY to start the calculating process: ");
                         break;
                     default:
-                        sendMessage(chatId, "Command was not correct");
                         break;
                 }
+                if (answerText != null) {
+                    sendEditedMessage(chatId, (int) messageId, answerText);
+                }
             }
-
-        } else if (update.hasCallbackQuery()) {
-            String callBackData = update.getCallbackQuery().getData();
-            Message callbackMessage = update.getCallbackQuery().getMessage();
-            long messageId = callbackMessage.getMessageId();
-            long chatId = callbackMessage.getChatId();
-            String answerText = null;
-            switch (callBackData) {
-                case "YES_BUTTON":
-                    answerText = registrationPermittedAct(callbackMessage);
-                    break;
-                case "NO_BUTTON":
-                    answerText = "You pressed NO button. Access to the Bot is not allowed. Try again";
-                    break;
-                case "YES_DELETE_BUTTON":
-                    log.info("yes delete button pressed");
-                    botUserRepository.delete(Objects.requireNonNull(botUserRepository.findById(chatId)).orElse(null));
-                    answerText = "Data for your account has been deleted.";
-                    log.info("information about the user is deleted");
-                    break;
-                case "NO_DELETE_BUTTON":
-                    log.info("no button pressed");
-                    answerText = "I won't delete the data for your account. You can press start to continue.";
-                    break;
-                case "SALARY_BUTTON":
-                    setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.SALARY);
-                    break;
-                case "CHILD_SUPPORT_BUTTON":
-                    setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.CHILD_SUPPORT);
-                    break;
-                case "PRISE_BUTTON":
-                    setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.PRISE);
-                    break;
-                case "GIFT_BUTTON":
-                    setMarkerAndEarningProcess(chatId, callBackData, TypeOfEarning.GIFT);
-                    break;
-                case "All earnings_BUTTON":
-                    log.info("All earnings_BUTTON" + chatId);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                            earningService.findAllEarning(chatId)).toString());
-                    break;
-                case "Earnings of this year_BUTTON":
-                    log.info("Earnings of this year_BUTTON" + chatId);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                            earningService.findAllEarningOfTheCurrentYear(chatId)).toString());
-                    break;
-                case "Earnings of the year ..._BUTTON":
-                    log.info("Earnings of the year_BUTTON" + chatId);
-                    marker = Marker.SOME_YEAR_EARNINGS;
-                    sendMessage(chatId, "Please, enter the correct year: ");
-                    break;
-                case "Earnings of this month_BUTTON":
-                    log.info("Earnings of this month_BUTTON" + chatId);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                            earningService.findAllEarningOfTheCurrentMonth(chatId)).toString());
-                    break;
-                case "Earnings of the month ..._BUTTON":
-                    log.info("Earnings of the month ..._BUTTON" + chatId);
-                    marker = Marker.SOME_MONTH_EARNING;
-                    sendMessage(chatId, "Please, enter the correct month from 1-12: ");
-                    break;
-                case "Earnings of the day_BUTTON":
-                    log.info("Earnings of the month ..._BUTTON" + chatId);
-                    marker = Marker.SOME_DAY_EARNING;
-                    sendMessage(chatId, "Please, enter the correct day from 1-31: ");
-                    break;
-                case "ELECTRONICS_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.ELECTRONICS);
-                    break;
-                case "TAXI_BUS_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.TAXI_BUS);
-                    break;
-                case "CAR_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR);
-                    break;
-                case "CAR_PARTS_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR_PARTS);
-                    break;
-                case "CAR_REPAIR_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CAR_REPAIR);
-                    break;
-                case "FOOD_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.FOOD);
-                    break;
-                case "SOFT_DRINK_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.SOFT_DRINK);
-                    break;
-                case "ALCOHOL_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.ALCOHOL);
-                    break;
-                case "SWEETS_AND_COOKIES_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.SWEETS_AND_COOKIES);
-                    break;
-                case "RESTAURANT_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.RESTAURANT);
-                    break;
-                case "RESORT_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.RESORT);
-                    break;
-                case "STATIONARY_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.STATIONARY);
-                    break;
-                case "HOME_STUFF_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.HOME_STUFF);
-                    break;
-                case "CLOTHES_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.CLOTHES);
-                    break;
-                case "FOOTWEAR_BUTTON":
-                    setMarkerAndSpendingProcess(chatId, callBackData, TypeOfPurchase.FOOTWEAR);
-                    break;
-                case "All info about my spending_BUTTON":
-                    log.info("All info about my spending_BUTTON " + chatId);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                            spendingService.findAllSpending(chatId)).toString());
-                    break;
-                case "Money spent this year_BUTTON":
-                    log.info("Money spent this year_BUTTON " + chatId);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                            spendingService.findAllSpendingOfTheCurrentYear(chatId)).toString());
-                    break;
-                case "Money spent the year ..._BUTTON":
-                    log.info("Money spent the year ..._BUTTON " + chatId);
-                    marker = Marker.SOME_YEAR_SPENDING;
-                    sendMessage(chatId, "Please, enter the correct year: ");
-                    break;
-                case "Money spent this month_BUTTON":
-                    log.info("Money spent this month_BUTTON " + chatId);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                            spendingService.findAllSpendingOfTheCurrentMonth(chatId)).toString());
-                    break;
-                case "Money spent the month ..._BUTTON":
-                    log.info("Money spent the month ..._BUTTON " + chatId);
-                    marker = Marker.SOME_MONTH_SPENDING;
-                    sendMessage(chatId, "Please, enter the correct month from 1-12: ");
-                    break;
-                case "Money spent today_BUTTON":
-                    log.info("Money spent today_BUTTON " + chatId);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-                            spendingService.findAllSpendingOfTheCurrentDay(chatId)).toString());
-                    break;
-                case "Money spent the day ..._BUTTON":
-                    log.info("Money spent the day ..._BUTTON " + chatId);
-                    marker = Marker.SOME_DAY_SPENDING;
-                    sendMessage(chatId, "Please, enter the correct day from 1-31: ");
-                    break;
-                case "Profit of the current month_BUTTON":
-                    log.info("Profit of the current month_BUTTON " + chatId);
-                    calculateProfitOfTheCurrentMonth(chatId);
-                    break;
-                case "Profit of the optional month_BUTTON":
-                    log.info("Profit of the optional month_BUTTON " + chatId);
-                    marker = Marker.MONTH_PROFIT;
-                    sendMessage(chatId, "Please, enter the month, when you want to calculate profit: ");
-                    break;
-                case "Profit of the current year_BUTTON":
-                    log.info("Profit of the current year_BUTTON " + chatId);
-                    calculateProfitOfTheCurrentYear(chatId);
-                    break;
-                case "Profit of the optional year_BUTTON":
-                    log.info("Profit of the optional year_BUTTON " + chatId);
-                    marker = Marker.YEAR_PROFIT;
-                    sendMessage(chatId, "Please, enter the year, when you want to calculate profit: ");
-                    break;
-                case "Profit for selected period_BUTTON":
-                    log.info("Profit for selected period_BUTTON " + chatId);
-                    marker = Marker.START_DATE_PROFIT;
-                    sendMessage(chatId, "Please, enter the initial date in format DD-MM-YYYY to start the calculating process: ");
-                    break;
-                default:
-                    break;
-            }
-            if (answerText != null) {
-                sendEditedMessage(chatId, (int) messageId, answerText);
-            }
+        }catch (Exception e){
+            handleException(update.getMessage().getChatId(), e);
         }
     }
 
@@ -985,5 +988,10 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             log.error(textToSend + " For user with id: " + chatId);
         }
         return list;
+    }
+
+    public <T extends Exception> void handleException(long chatId, T e){
+        log.error(("The error {} occurred with the message: " + e.getMessage()), e.getClass().getName());
+        sendMessage(chatId, e.getMessage());
     }
 }
