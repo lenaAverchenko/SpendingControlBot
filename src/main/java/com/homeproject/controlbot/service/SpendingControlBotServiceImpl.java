@@ -933,16 +933,16 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         }
     }
 
-    @Scheduled(cron = "${cron.scheduler}")
-    public void sendAutoMessage() {
-        List<AutomatedMessage> automatedMessageList = automatedMessageRepository.findAll();
-        List<BotUser> botUsersList = botUserRepository.findAll();
-        for (AutomatedMessage mes : automatedMessageList) {
-            for (BotUser user : botUsersList) {
-                sendMessage(user.getId(), mes.getAdMessage());
-            }
-        }
-    }
+//    @Scheduled(cron = "${cron.scheduler}")
+//    public void sendAutoMessage() {
+//        List<AutomatedMessage> automatedMessageList = automatedMessageRepository.findAll();
+//        List<BotUser> botUsersList = botUserRepository.findAll();
+//        for (AutomatedMessage mes : automatedMessageList) {
+//            for (BotUser user : botUsersList) {
+//                sendMessage(user.getId(), mes.getAdMessage());
+//            }
+//        }
+//    }
 
     public boolean dateMatchesTheMonth(int day, int month, int year) {
         boolean toReturn = false;
