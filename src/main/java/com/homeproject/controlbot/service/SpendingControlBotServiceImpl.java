@@ -29,6 +29,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.text.ParseException;
@@ -383,7 +384,9 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         break;
                     case "All earnings_BUTTON":
                         log.info("All earnings_BUTTON" + chatId);
-                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+//                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+//                                earningService.findAllEarning(chatId)).toString());
+                        checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 earningService.findAllEarning(chatId)).toString());
                         break;
                     case "Earnings of this year_BUTTON":
@@ -521,7 +524,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                     sendEditedMessage(chatId, (int) messageId, answerText);
                 }
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             handleException(update.getMessage().getChatId(), e);
         }
     }
@@ -905,12 +908,90 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         executeMessage(sendMessage);
     }
 
+    public void checkLengthAndSendMes(long chatId, String textToSend){
+        char[] textToChars = textToSend.toCharArray();
+        int lengthOfTheText = textToChars.length;
+            if (lengthOfTheText < 4090) {
+                sendMessage(chatId, textToSend);
+            } else{
+            log.info("sendMessage was called and length is more than 4090");
+            List<String> textsToSend = new ArrayList<>();
+            StringBuilder temporaryString = new StringBuilder();
+            int temporaryIndex = 0;
+            while (lengthOfTheText > 4090 + temporaryIndex) {
+                log.info("length is more than 4090 and temporary index = " + temporaryIndex);
+                for (int i = temporaryIndex; i < 4090 + temporaryIndex; i++) {
+                    if (i <= 4000 + temporaryIndex) {
+                        log.info("i <= 4000 and temporary index = " + temporaryIndex);
+                        temporaryString.append(textToChars[i]);
+                    } else {
+                        log.info("i > 4000 and temporary index = " + temporaryIndex);
+                        if (textToChars[i] == ' ') {
+                            temporaryIndex = i;
+                            break;
+                        }
+                        temporaryString.append(textToChars[i]);
+                    }
+                }
+                textsToSend.add(temporaryString.toString());
+                temporaryString = new StringBuilder();
+            }
+            if (temporaryIndex < lengthOfTheText) {
+                for (int i = temporaryIndex; i < lengthOfTheText; i++) {
+                    temporaryString.append(textToChars[i]);
+                }
+                textsToSend.add(temporaryString.toString());
+            }
+            for (String str:textsToSend) {
+                sendMessage(chatId,str);
+            }
+        }
+    }
+
     public void sendMessage(long chatId, String textToSend) {
         log.info("sendMessage was called");
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(String.valueOf(chatId));
-        sendMessage.setText(textToSend);
-        executeMessage(sendMessage);
+//        char[] textToChars = textToSend.toCharArray();
+//        int lengthOfTheText = textToChars.length;
+//        if (lengthOfTheText < 4090) {
+            sendMessage.setText(textToSend);
+            executeMessage(sendMessage);
+//        } else {
+//            log.info("sendMessage was called and length is more than 4090");
+//            List<String> textsToSend = new ArrayList<>();
+//            StringBuilder temporaryString = new StringBuilder();
+//            int temporaryIndex = 0;
+//            while (lengthOfTheText > 4090 + temporaryIndex) {
+//                log.info("length is more than 4090 and temporary index = " + temporaryIndex);
+//                for (int i = temporaryIndex; i < 4090 + temporaryIndex; i++) {
+//                    if (i <= 4000 + temporaryIndex) {
+//                        log.info("i <= 4000 and temporary index = " + temporaryIndex);
+//                        temporaryString.append(textToChars[i]);
+//                        temporaryIndex = i;
+//                    } else {
+//                        log.info("i > 4000 and temporary index = " + temporaryIndex);
+//                        if (textToChars[i] == ' ') {
+//                            temporaryIndex = i;
+//                            break;
+//                        }
+//                        temporaryString.append(textToChars[i]);
+//                    }
+//                }
+//                textsToSend.add(temporaryString.toString());
+//                temporaryString = new StringBuilder();
+//            }
+//            if (temporaryIndex < lengthOfTheText) {
+//                for (int i = temporaryIndex; i < lengthOfTheText; i++) {
+//                    temporaryString.append(textToChars[i]);
+//                }
+//                textsToSend.add(temporaryString.toString());
+//            }
+//            for (String str:textsToSend) {
+//                sendMessage.setText(str);
+//                executeMessage(sendMessage);
+//            }
+//        }
     }
 
     public void sendEditedMessage(long chatId, int messageId, String notificationMessage) {
@@ -990,7 +1071,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         return list;
     }
 
-    public <T extends Exception> void handleException(long chatId, T e){
+    public <T extends Exception> void handleException(long chatId, T e) {
         log.error(("The error {} occurred with the message: " + e.getMessage()), e.getClass().getName());
         sendMessage(chatId, e.getMessage());
     }
