@@ -6,7 +6,6 @@ import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.enums.Marker;
 import com.homeproject.controlbot.enums.TypeOfEarning;
 import com.homeproject.controlbot.enums.TypeOfPurchase;
-import com.homeproject.controlbot.exceptions.DataDoesNotExistException;
 import com.homeproject.controlbot.helper.ButtonAndListCreator;
 import com.homeproject.controlbot.helper.ProfitCalculator;
 import com.homeproject.controlbot.repository.AutomatedMessageRepository;
@@ -384,14 +383,12 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         break;
                     case "All earnings_BUTTON":
                         log.info("All earnings_BUTTON" + chatId);
-//                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
-//                                earningService.findAllEarning(chatId)).toString());
                         checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 earningService.findAllEarning(chatId)).toString());
                         break;
                     case "Earnings of this year_BUTTON":
                         log.info("Earnings of this year_BUTTON" + chatId);
-                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                        checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 earningService.findAllEarningOfTheCurrentYear(chatId)).toString());
                         break;
                     case "Earnings of the year ..._BUTTON":
@@ -401,7 +398,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         break;
                     case "Earnings of this month_BUTTON":
                         log.info("Earnings of this month_BUTTON" + chatId);
-                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                        checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 earningService.findAllEarningOfTheCurrentMonth(chatId)).toString());
                         break;
                     case "Earnings of the month ..._BUTTON":
@@ -461,12 +458,12 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         break;
                     case "All info about my spending_BUTTON":
                         log.info("All info about my spending_BUTTON " + chatId);
-                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                        checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 spendingService.findAllSpending(chatId)).toString());
                         break;
                     case "Money spent this year_BUTTON":
                         log.info("Money spent this year_BUTTON " + chatId);
-                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                        checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 spendingService.findAllSpendingOfTheCurrentYear(chatId)).toString());
                         break;
                     case "Money spent the year ..._BUTTON":
@@ -476,7 +473,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         break;
                     case "Money spent this month_BUTTON":
                         log.info("Money spent this month_BUTTON " + chatId);
-                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                        checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 spendingService.findAllSpendingOfTheCurrentMonth(chatId)).toString());
                         break;
                     case "Money spent the month ..._BUTTON":
@@ -486,7 +483,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                         break;
                     case "Money spent today_BUTTON":
                         log.info("Money spent today_BUTTON " + chatId);
-                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                        checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 spendingService.findAllSpendingOfTheCurrentDay(chatId)).toString());
                         break;
                     case "Money spent the day ..._BUTTON":
@@ -578,22 +575,22 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
             if (monthIndicator == 0 && dayIndicator == 0) {
                 if (marker == Marker.SOME_YEAR_EARNINGS) {
                     log.info("SOME_YEAR_EARNINGS & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                    sendMessage(chatId,
+                    checkLengthAndSendMes(chatId,
                             checkAndReturnListIfItIsNotEmpty(chatId,
                                     earningService.findAllEarningOfTheYear(yearIndicator, chatId)).toString());
                 } else if (marker == Marker.SOME_YEAR_SPENDING) {
                     log.info("SOME_YEAR_SPENDING & monthIndicator == 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                    checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                             spendingService.findAllSpendingOfTheYear(yearIndicator, chatId)).toString());
                 }
             } else if (monthIndicator != 0 && dayIndicator == 0) {
                 if (marker == Marker.SOME_YEAR_EARNINGS) {
                     log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                    checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                             earningService.findAllEarningOfTheMonth(monthIndicator, yearIndicator, chatId)).toString());
                 } else if (marker == Marker.SOME_YEAR_SPENDING) {
                     log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator == 0. Received message " + receivedMessageText);
-                    sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                    checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                             spendingService.findAllSpendingOfTheMonth(monthIndicator, yearIndicator, chatId)).toString());
                 }
                 monthIndicator = 0;
@@ -601,11 +598,12 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                 if (dateMatchesTheMonth(dayIndicator, monthIndicator, yearIndicator)) {
                     if (marker == Marker.SOME_YEAR_EARNINGS) {
                         log.info("SOME_YEAR_EARNINGS & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
-                        sendMessage(chatId,
-                                checkAndReturnListIfItIsNotEmpty(chatId, earningService.findAllEarningOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
+                        checkLengthAndSendMes(chatId,
+                                checkAndReturnListIfItIsNotEmpty(chatId,
+                                        earningService.findAllEarningOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
                     } else if (marker == Marker.SOME_YEAR_SPENDING) {
                         log.info("SOME_YEAR_SPENDING & monthIndicator != 0 && dayIndicator != 0. Received message " + receivedMessageText);
-                        sendMessage(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
+                        checkLengthAndSendMes(chatId, checkAndReturnListIfItIsNotEmpty(chatId,
                                 spendingService.findAllSpendingOfTheDay(dayIndicator, monthIndicator, yearIndicator, chatId)).toString());
                     }
                 } else {
@@ -908,12 +906,12 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         executeMessage(sendMessage);
     }
 
-    public void checkLengthAndSendMes(long chatId, String textToSend){
+    public void checkLengthAndSendMes(long chatId, String textToSend) {
         char[] textToChars = textToSend.toCharArray();
         int lengthOfTheText = textToChars.length;
-            if (lengthOfTheText < 4090) {
-                sendMessage(chatId, textToSend);
-            } else{
+        if (lengthOfTheText < 4090) {
+            sendMessage(chatId, textToSend);
+        } else {
             log.info("sendMessage was called and length is more than 4090");
             List<String> textsToSend = new ArrayList<>();
             StringBuilder temporaryString = new StringBuilder();
@@ -942,8 +940,8 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
                 }
                 textsToSend.add(temporaryString.toString());
             }
-            for (String str:textsToSend) {
-                sendMessage(chatId,str);
+            for (String str : textsToSend) {
+                sendMessage(chatId, str);
             }
         }
     }
@@ -952,46 +950,8 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         log.info("sendMessage was called");
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(String.valueOf(chatId));
-//        char[] textToChars = textToSend.toCharArray();
-//        int lengthOfTheText = textToChars.length;
-//        if (lengthOfTheText < 4090) {
-            sendMessage.setText(textToSend);
-            executeMessage(sendMessage);
-//        } else {
-//            log.info("sendMessage was called and length is more than 4090");
-//            List<String> textsToSend = new ArrayList<>();
-//            StringBuilder temporaryString = new StringBuilder();
-//            int temporaryIndex = 0;
-//            while (lengthOfTheText > 4090 + temporaryIndex) {
-//                log.info("length is more than 4090 and temporary index = " + temporaryIndex);
-//                for (int i = temporaryIndex; i < 4090 + temporaryIndex; i++) {
-//                    if (i <= 4000 + temporaryIndex) {
-//                        log.info("i <= 4000 and temporary index = " + temporaryIndex);
-//                        temporaryString.append(textToChars[i]);
-//                        temporaryIndex = i;
-//                    } else {
-//                        log.info("i > 4000 and temporary index = " + temporaryIndex);
-//                        if (textToChars[i] == ' ') {
-//                            temporaryIndex = i;
-//                            break;
-//                        }
-//                        temporaryString.append(textToChars[i]);
-//                    }
-//                }
-//                textsToSend.add(temporaryString.toString());
-//                temporaryString = new StringBuilder();
-//            }
-//            if (temporaryIndex < lengthOfTheText) {
-//                for (int i = temporaryIndex; i < lengthOfTheText; i++) {
-//                    temporaryString.append(textToChars[i]);
-//                }
-//                textsToSend.add(temporaryString.toString());
-//            }
-//            for (String str:textsToSend) {
-//                sendMessage.setText(str);
-//                executeMessage(sendMessage);
-//            }
-//        }
+        sendMessage.setText(textToSend);
+        executeMessage(sendMessage);
     }
 
     public void sendEditedMessage(long chatId, int messageId, String notificationMessage) {
@@ -1014,16 +974,16 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         }
     }
 
-//    @Scheduled(cron = "${cron.scheduler}")
-//    public void sendAutoMessage() {
-//        List<AutomatedMessage> automatedMessageList = automatedMessageRepository.findAll();
-//        List<BotUser> botUsersList = botUserRepository.findAll();
-//        for (AutomatedMessage mes : automatedMessageList) {
-//            for (BotUser user : botUsersList) {
-//                sendMessage(user.getId(), mes.getAdMessage());
-//            }
-//        }
-//    }
+    @Scheduled(cron = "${cron.scheduler}")
+    public void sendAutoMessage() {
+        List<AutomatedMessage> automatedMessageList = automatedMessageRepository.findAll();
+        List<BotUser> botUsersList = botUserRepository.findAll();
+        for (AutomatedMessage mes : automatedMessageList) {
+            for (BotUser user : botUsersList) {
+                sendMessage(user.getId(), mes.getAdMessage());
+            }
+        }
+    }
 
     public boolean dateMatchesTheMonth(int day, int month, int year) {
         boolean toReturn = false;
