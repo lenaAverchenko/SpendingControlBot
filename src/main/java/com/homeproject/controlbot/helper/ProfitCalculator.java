@@ -38,7 +38,6 @@ public class ProfitCalculator {
     }
 
     public String calculateProfitOfTheYear(long chatId, int year) {
-        log.info("calculateProfitOfTheYear started");
         BigDecimal allSpentMoney = spendingRepository.findAll().stream()
                 .filter(sp -> sp.getBotUser().getId() == chatId)
                 .filter(sp -> sp.getSpentAt().toLocalDateTime().getYear() == year)
@@ -82,7 +81,6 @@ public class ProfitCalculator {
     }
 
     public String calculateProfitOfTheSelectedPeriod(long chatId, String startDate, String endDate) {
-//        BigDecimal resultedSum = null;
         String datePattern = "\\d{2}-\\d{2}-\\d{4}";
         String pattern = "dd-MM-yyyy";
         SimpleDateFormat dateFormat = new SimpleDateFormat(pattern);

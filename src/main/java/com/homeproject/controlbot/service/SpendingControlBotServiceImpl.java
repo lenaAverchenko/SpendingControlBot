@@ -7,6 +7,7 @@ import com.homeproject.controlbot.enums.Marker;
 import com.homeproject.controlbot.enums.TypeOfEarning;
 import com.homeproject.controlbot.enums.TypeOfPurchase;
 import com.homeproject.controlbot.helper.ButtonAndListCreator;
+import com.homeproject.controlbot.helper.MessageSender;
 import com.homeproject.controlbot.helper.ProfitCalculator;
 import com.homeproject.controlbot.repository.AutomatedMessageRepository;
 import com.homeproject.controlbot.repository.BotUserRepository;
@@ -21,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -58,6 +58,8 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     private SpendingService spendingService;
     @Autowired
     private AutomatedMessageRepository automatedMessageRepository;
+    @Autowired
+    private MessageSender messageSender;
     private TypeOfEarning typeOfEarning;
     private TypeOfPurchase typeOfPurchase;
     private ButtonAndListCreator buttonAndListCreator = new ButtonAndListCreator();
@@ -886,81 +888,27 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
     public void sendMessageWithKeyboard(long chatId, String textToSend, List<String> buttonNames) {
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(String.valueOf(chatId));
-        sendMessage.setText(textToSend);
-        if (!buttonNames.isEmpty()) {
-            buttonAndListCreator.createKeyboardForRequest(buttonNames, sendMessage);
-        }
-        executeMessage(sendMessage);
+        executeMessage(messageSender.sendMessageWithKeyboard(chatId, textToSend, buttonNames));
     }
 
     public void sendMessageWithButtons(long chatId, String textToSend, List<List<String>> buttonNames) {
-        log.info("sendMessageWithButtons was called");
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(String.valueOf(chatId));
-        sendMessage.setText(textToSend);
-        if (!buttonNames.isEmpty()) {
-            buttonAndListCreator.createButtonsInMessage(sendMessage, buttonNames);
-        }
-        executeMessage(sendMessage);
+        executeMessage(messageSender.sendMessageWithButtons(chatId, textToSend, buttonNames));
     }
 
     public void checkLengthAndSendMes(long chatId, String textToSend) {
-        char[] textToChars = textToSend.toCharArray();
-        int lengthOfTheText = textToChars.length;
-        if (lengthOfTheText < 4090) {
-            sendMessage(chatId, textToSend);
-        } else {
-            log.info("sendMessage was called and length is more than 4090");
-            List<String> textsToSend = new ArrayList<>();
-            StringBuilder temporaryString = new StringBuilder();
-            int temporaryIndex = 0;
-            while (lengthOfTheText > 4090 + temporaryIndex) {
-                log.info("length is more than 4090 and temporary index = " + temporaryIndex);
-                for (int i = temporaryIndex; i < 4090 + temporaryIndex; i++) {
-                    if (i <= 4000 + temporaryIndex) {
-                        log.info("i <= 4000 and temporary index = " + temporaryIndex);
-                        temporaryString.append(textToChars[i]);
-                    } else {
-                        log.info("i > 4000 and temporary index = " + temporaryIndex);
-                        if (textToChars[i] == ' ') {
-                            temporaryIndex = i;
-                            break;
-                        }
-                        temporaryString.append(textToChars[i]);
-                    }
-                }
-                textsToSend.add(temporaryString.toString());
-                temporaryString = new StringBuilder();
-            }
-            if (temporaryIndex < lengthOfTheText) {
-                for (int i = temporaryIndex; i < lengthOfTheText; i++) {
-                    temporaryString.append(textToChars[i]);
-                }
-                textsToSend.add(temporaryString.toString());
-            }
-            for (String str : textsToSend) {
-                sendMessage(chatId, str);
-            }
+        for (SendMessage mes:messageSender.checkLengthAndSendMes(chatId, textToSend)) {
+            executeMessage(mes);
         }
+
     }
 
     public void sendMessage(long chatId, String textToSend) {
-        log.info("sendMessage was called");
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(String.valueOf(chatId));
-        sendMessage.setText(textToSend);
-        executeMessage(sendMessage);
+        executeMessage(messageSender.sendMessage(chatId, textToSend));
     }
 
     public void sendEditedMessage(long chatId, int messageId, String notificationMessage) {
-        EditMessageText messageText = new EditMessageText();
-        messageText.setChatId(String.valueOf(chatId));
-        messageText.setText(notificationMessage);
-        messageText.setMessageId((int) messageId);
         try {
-            execute(messageText);
+            execute(messageSender.sendEditedMessage(chatId, messageId, notificationMessage));
         } catch (TelegramApiException e) {
             log.error(ERROR_TEXT + e.getMessage());
         }

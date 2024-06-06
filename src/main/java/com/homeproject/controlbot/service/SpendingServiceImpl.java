@@ -24,7 +24,6 @@ public class SpendingServiceImpl implements SpendingService{
 
     @Override
     public String deleteSpending(long id, long chatIdCheck) {
-        log.info("deleteSpending method was called by " + chatIdCheck + ". Deleting of the spending by id: " + id);
         Spending spendingToDelete = spendingRepository.findById(id).orElse(null);
         long chatId = 0;
         if (spendingToDelete != null) {
@@ -43,7 +42,6 @@ public class SpendingServiceImpl implements SpendingService{
     }
     @Override
     public List<Spending> findAllSpending(long chatId) {
-        log.info("findAllEarning method was called by " + chatId);
         return spendingRepository.findAll().stream()
                 .filter(sp -> sp.getBotUser().getId() == chatId)
                 .sorted(new SpendingDateComparator()).toList();
@@ -51,7 +49,6 @@ public class SpendingServiceImpl implements SpendingService{
 
     @Override
     public List<Spending> findAllSpendingOfTheYear(int year, long chatId) {
-        log.info("findAllSpendingOfTheYear method was called by " + chatId);
         return findAllSpending(chatId).stream()
                 .filter(x -> (int) x.getSpentAt().toLocalDateTime().getYear() == year)
                 .toList();
@@ -59,13 +56,11 @@ public class SpendingServiceImpl implements SpendingService{
 
     @Override
     public List<Spending> findAllSpendingOfTheCurrentYear(long chatId) {
-        log.info("findAllSpendingOfTheCurrentYear method was called by " + chatId);
         return findAllSpendingOfTheYear(LocalDate.now().getYear(), chatId);
     }
 
     @Override
     public List<Spending> findAllSpendingOfTheMonth(int monthNumber, int year, long chatId) {
-        log.info("findAllSpendingOfTheMonth method was called by " + chatId);
         return findAllSpending(chatId).stream()
                 .filter(x -> ((int) x.getSpentAt().toLocalDateTime().getYear() == year))
                 .filter(y -> (y.getSpentAt().toLocalDateTime().getMonth().getValue() == monthNumber))
@@ -74,13 +69,11 @@ public class SpendingServiceImpl implements SpendingService{
 
     @Override
     public List<Spending> findAllSpendingOfTheCurrentMonth(long chatId) {
-        log.info("findAllSpendingOfTheCurrentMonth method was called by " + chatId);
         return findAllSpendingOfTheMonth(LocalDate.now().getMonth().getValue(), LocalDate.now().getYear(), chatId);
     }
 
     @Override
     public List<Spending> findAllSpendingOfTheCurrentDay(long chatId) {
-        log.info("findAllSpendingOfTheCurrentDay " + chatId);
         return findAllSpendingOfTheDay(
                 LocalDate.now().getDayOfMonth(),
                 LocalDate.now().getMonth().getValue(),
@@ -89,7 +82,6 @@ public class SpendingServiceImpl implements SpendingService{
 
     @Override
     public List<Spending> findAllSpendingOfTheDay(int spentDay, int spentMonth, int spentYear, long chatId) {
-            log.info("findAllSpendingOfTheDay method was called by " + chatId);
         return findAllSpending(chatId).stream()
                 .filter(x -> ((int) x.getSpentAt().toLocalDateTime().getYear() == spentYear))
                 .filter(y -> (y.getSpentAt().toLocalDateTime().getMonth().getValue() == spentMonth))
@@ -100,7 +92,6 @@ public class SpendingServiceImpl implements SpendingService{
     @Override
     public String saveSpending(long chatId, BotUser botUser, TypeOfPurchase typeOfPurchase, String shopName,
                               String descriptionOfPurchase, BigDecimal spentSum, Timestamp date) {
-        log.info("saveSpending has been started");
         Timestamp currentTime = new Timestamp(System.currentTimeMillis());
         return saveSpendingByDate(chatId, botUser, typeOfPurchase, shopName, descriptionOfPurchase,
                 spentSum, date);
@@ -108,7 +99,6 @@ public class SpendingServiceImpl implements SpendingService{
     @Override
     public String saveSpendingByDate(long chatId, BotUser botUser, TypeOfPurchase typeOfPurchase, String shopName,
                                      String descriptionOfPurchase, BigDecimal sum, Timestamp date) {
-        log.info("saveSpendingByDate has been started");
         Timestamp currentTime = new Timestamp(System.currentTimeMillis());
         Spending spending = new Spending();
         spending.setRegisteredAt(currentTime);
