@@ -1,9 +1,7 @@
 package com.homeproject.controlbot.entity;
 
 import com.homeproject.controlbot.enums.TypeOfPurchase;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 
 
 import javax.persistence.*;
@@ -12,6 +10,8 @@ import java.sql.Timestamp;
 
 @Entity (name = "spending")
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Spending {
     @Id
 //    @GeneratedValue(strategy = GenerationType.IDENTITY)

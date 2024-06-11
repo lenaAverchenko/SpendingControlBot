@@ -1,7 +1,9 @@
 package com.homeproject.controlbot.entity;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 import java.sql.Timestamp;
@@ -9,6 +11,8 @@ import java.util.List;
 
 @Entity (name = "bot_users")
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class BotUser {
 
     @Id
