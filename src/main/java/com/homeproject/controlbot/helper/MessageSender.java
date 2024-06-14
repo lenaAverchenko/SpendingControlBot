@@ -21,9 +21,7 @@ public class MessageSender {
     private final BotUserRepository botUserRepository;
     @Autowired
     private AutomatedMessageRepository automatedMessageRepository;
-
-
-    private  ButtonAndListCreator buttonAndListCreator = new ButtonAndListCreator();
+    private final ButtonAndListCreator buttonAndListCreator = new ButtonAndListCreator();
 
     public SendMessage sendMessageWithKeyboard(long chatId, String textToSend, List<String> buttonNames) {
         SendMessage sendMessage = new SendMessage();
@@ -60,7 +58,7 @@ public class MessageSender {
                     if (i <= 4000 + temporaryIndex) {
                         temporaryString.append(textToChars[i]);
                     } else {
-                        if (textToChars[i] == ' ') {
+                        if (textToChars[i] == ' ' || i == 4089) {
                             temporaryIndex = i;
                             break;
                         }
