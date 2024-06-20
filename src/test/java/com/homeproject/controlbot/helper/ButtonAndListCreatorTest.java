@@ -52,7 +52,7 @@ class ButtonAndListCreatorTest {
         sendMessageCheck.setReplyMarkup(replyKeyboardMarkup);
         buttonAndListCreator.createKeyboardForRequest(buttonNames, sendMessage);
         assertNull(sendMessage.getText());
-        Assertions.assertEquals(sendMessageCheck.getReplyMarkup().toString(),sendMessage.getReplyMarkup().toString());
+        Assertions.assertEquals(sendMessageCheck.getReplyMarkup().toString(), sendMessage.getReplyMarkup().toString());
     }
 
     @Test

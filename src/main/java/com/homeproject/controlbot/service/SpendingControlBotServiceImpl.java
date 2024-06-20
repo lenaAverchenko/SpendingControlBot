@@ -896,7 +896,7 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
     }
 
     public void checkLengthAndSendMes(long chatId, String textToSend) {
-        for (SendMessage mes:messageSender.checkLengthAndSendMes(chatId, textToSend)) {
+        for (SendMessage mes : messageSender.checkLengthAndSendMes(chatId, textToSend)) {
             executeMessage(mes);
         }
 
@@ -973,7 +973,6 @@ public class SpendingControlBotServiceImpl extends TelegramLongPollingBot implem
         if (list.isEmpty()) {
             String textToSend = "The data you are looking for doesn't exist.";
             sendMessage(chatId, textToSend);
-//            throw new DataDoesNotExistException("The data you are looking for doesn't exist");
             log.error(textToSend + " For user with id: " + chatId);
         }
         return list;

@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class ProfitCalculatorTest {
@@ -35,14 +34,12 @@ class ProfitCalculatorTest {
     private SpendingRepository spendingRepository;
     @Mock
     private EarningRepository earningRepository;
-    private BigDecimal currentProfit;
     private List<Spending> spendingList;
     private List<Earning> earningList;
     private List<BotUser> botUserList;
 
 
-
-    ProfitCalculatorTest(){
+    ProfitCalculatorTest() {
 
     }
 
@@ -80,12 +77,12 @@ class ProfitCalculatorTest {
 
     @Test
     void calculateProfit() {
-        Assertions.assertEquals("Your profit for that period is: 220",profitCalculator.calculateProfit(4L, new BigDecimal(240), new BigDecimal(20)));
+        Assertions.assertEquals("Your profit for that period is: 220", profitCalculator.calculateProfit(4L, new BigDecimal(240), new BigDecimal(20)));
     }
 
     @Test
     void calculateNegativeProfit() {
-        Assertions.assertEquals("You don't have any profit for that period. You have spent more than you've earned. The difference is -220",profitCalculator.calculateProfit(4L, new BigDecimal(20), new BigDecimal(240)));
+        Assertions.assertEquals("You don't have any profit for that period. You have spent more than you've earned. The difference is -220", profitCalculator.calculateProfit(4L, new BigDecimal(20), new BigDecimal(240)));
     }
 
     @Test
@@ -126,6 +123,7 @@ class ProfitCalculatorTest {
         Mockito.when(this.spendingRepository.findAll()).thenReturn(this.spendingList);
         Assertions.assertEquals("Your profit for that period is: 1700", profitCalculator.calculateProfitOfTheSelectedPeriod(1, "01-03-2023", "02-03-2024"));
     }
+
     @Test
     void calculateNegativeProfitOfTheSelectedPeriod() {
         Mockito.when(this.earningRepository.findAll()).thenReturn(this.earningList);

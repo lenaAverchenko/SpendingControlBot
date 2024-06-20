@@ -8,7 +8,7 @@ import javax.persistence.*;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 
-@Entity (name = "spending")
+@Entity(name = "spending")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,7 +24,6 @@ public class Spending {
     private String shopName;
     private String description;
 
-//    @ManyToOne(cascade = CascadeType.PERSIST)
     @ManyToOne
     @JoinColumn(name = "bot_user_id", referencedColumnName = "id")
     private BotUser botUser;

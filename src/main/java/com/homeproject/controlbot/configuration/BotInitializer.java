@@ -1,6 +1,5 @@
 package com.homeproject.controlbot.configuration;
 
-import com.homeproject.controlbot.service.SpendingControlBotService;
 import com.homeproject.controlbot.service.SpendingControlBotServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +18,11 @@ public class BotInitializer {
     SpendingControlBotServiceImpl spendingControlBotService;
 
     @EventListener({ContextRefreshedEvent.class})
-    public void init() throws TelegramApiException{
+    public void init() throws TelegramApiException {
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
-        try{
+        try {
             telegramBotsApi.registerBot(spendingControlBotService);
-        }catch (TelegramApiException e){
+        } catch (TelegramApiException e) {
             log.error("The error occurred: " + e.getMessage());
         }
 

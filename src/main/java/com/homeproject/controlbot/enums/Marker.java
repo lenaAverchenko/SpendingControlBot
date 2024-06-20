@@ -20,6 +20,4 @@ public enum Marker {
     YEAR_PROFIT,
     MONTH_PROFIT,
     NONE
-
-
 }

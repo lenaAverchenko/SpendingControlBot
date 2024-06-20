@@ -16,6 +16,4 @@ public enum TypeOfPurchase {
     HOME_STUFF,
     CLOTHES,
     FOOTWEAR
-
-
 }

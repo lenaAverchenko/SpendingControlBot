@@ -16,7 +16,7 @@ import java.util.List;
 
 @Slf4j
 @Service
-public class EarningServiceImpl implements EarningService{
+public class EarningServiceImpl implements EarningService {
 
     @Autowired
     private EarningRepository earningRepository;
@@ -64,7 +64,7 @@ public class EarningServiceImpl implements EarningService{
 
     @Override
     public List<Earning> findAllEarning(long chatId) {
-        return  earningRepository.findAll().stream()
+        return earningRepository.findAll().stream()
                 .filter(earn -> earn.getBotUser().getId() == chatId)
                 .sorted(new EarningDateComparator()).toList();
     }
@@ -101,5 +101,4 @@ public class EarningServiceImpl implements EarningService{
     public List<Earning> findAllEarningOfTheCurrentMonth(long chatId) {
         return findAllEarningOfTheMonth(LocalDate.now().getMonth().getValue(), LocalDate.now().getYear(), chatId);
     }
-
 }

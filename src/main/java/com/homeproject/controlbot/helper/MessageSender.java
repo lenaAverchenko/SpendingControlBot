@@ -1,10 +1,7 @@
 package com.homeproject.controlbot.helper;
 
-import com.homeproject.controlbot.repository.AutomatedMessageRepository;
-import com.homeproject.controlbot.repository.BotUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -16,11 +13,6 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class MessageSender {
-
-    @Autowired
-    private final BotUserRepository botUserRepository;
-    @Autowired
-    private AutomatedMessageRepository automatedMessageRepository;
     private final ButtonAndListCreator buttonAndListCreator = new ButtonAndListCreator();
 
     public SendMessage sendMessageWithKeyboard(long chatId, String textToSend, List<String> buttonNames) {
@@ -30,7 +22,7 @@ public class MessageSender {
         if (!buttonNames.isEmpty()) {
             buttonAndListCreator.createKeyboardForRequest(buttonNames, sendMessage);
         }
-       return sendMessage;
+        return sendMessage;
     }
 
     public SendMessage sendMessageWithButtons(long chatId, String textToSend, List<List<String>> buttonNames) {

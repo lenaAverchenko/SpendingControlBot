@@ -1,22 +1,16 @@
 package com.homeproject.controlbot.helper;
 
-import com.homeproject.controlbot.repository.AutomatedMessageRepository;
-import com.homeproject.controlbot.repository.BotUserRepository;
-import javassist.expr.Instanceof;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 
 import java.util.List;
-import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,11 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MessageSenderTest {
     @InjectMocks
     private MessageSender messageSender;
-    @Mock
-    private BotUserRepository botUserRepository;
-    @Mock
-    private AutomatedMessageRepository automatedMessageRepository;
-    private  ButtonAndListCreator buttonAndListCreator = new ButtonAndListCreator();
+    private ButtonAndListCreator buttonAndListCreator = new ButtonAndListCreator();
 
 
     @Test
@@ -58,6 +48,7 @@ class MessageSenderTest {
         Assertions.assertEquals("Some text to check", list.get(0).getText());
         Assertions.assertEquals(18, list.get(0).getText().length());
     }
+
     @Test
     void checkLengthAndSendMesTooLong() {
         String text = "1".repeat(5000);
@@ -67,6 +58,7 @@ class MessageSenderTest {
         Assertions.assertEquals(4089, list.get(0).getText().length());
         Assertions.assertEquals(911, list.get(1).getText().length());
     }
+
     @Test
     void sendMessage() {
         SendMessage sendMessage = messageSender.sendMessage(888L, "Some text");

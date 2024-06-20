@@ -1,10 +1,8 @@
 package com.homeproject.controlbot.service;
 
 import com.homeproject.controlbot.comparator.SpendingDateComparator;
-import com.homeproject.controlbot.configuration.BotConfig;
 import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Spending;
-import com.homeproject.controlbot.enums.Marker;
 import com.homeproject.controlbot.enums.TypeOfPurchase;
 import com.homeproject.controlbot.repository.SpendingRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +16,7 @@ import java.util.List;
 
 @Slf4j
 @Service
-public class SpendingServiceImpl implements SpendingService{
+public class SpendingServiceImpl implements SpendingService {
     @Autowired
     private SpendingRepository spendingRepository;
 
@@ -40,6 +38,7 @@ public class SpendingServiceImpl implements SpendingService{
         }
         return "Couldn't delete the spending";
     }
+
     @Override
     public List<Spending> findAllSpending(long chatId) {
         return spendingRepository.findAll().stream()
@@ -91,11 +90,11 @@ public class SpendingServiceImpl implements SpendingService{
 
     @Override
     public String saveSpending(long chatId, BotUser botUser, TypeOfPurchase typeOfPurchase, String shopName,
-                              String descriptionOfPurchase, BigDecimal spentSum, Timestamp date) {
-        Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+                               String descriptionOfPurchase, BigDecimal spentSum, Timestamp date) {
         return saveSpendingByDate(chatId, botUser, typeOfPurchase, shopName, descriptionOfPurchase,
                 spentSum, date);
     }
+
     @Override
     public String saveSpendingByDate(long chatId, BotUser botUser, TypeOfPurchase typeOfPurchase, String shopName,
                                      String descriptionOfPurchase, BigDecimal sum, Timestamp date) {
@@ -110,7 +109,7 @@ public class SpendingServiceImpl implements SpendingService{
         spending.setSpendingSum(sum);
         spendingRepository.save(spending);
         if (spendingRepository.findById(spending.getSpendingId()).isPresent()) {
-            return  "The provided data about your recent spending has been successfully saved.";
+            return "The provided data about your recent spending has been successfully saved.";
         }
         return "The data hasn't been saved. Try again.";
     }

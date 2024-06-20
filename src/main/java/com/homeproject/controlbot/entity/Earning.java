@@ -14,31 +14,29 @@ import java.sql.Timestamp;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Earning {
-        @Id
+    @Id
 //        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.AUTO)
 
-        private long earningId;
+    private long earningId;
 
-        @Enumerated(EnumType.STRING)
-        private TypeOfEarning typeOfEarning;
+    @Enumerated(EnumType.STRING)
+    private TypeOfEarning typeOfEarning;
+    @ManyToOne
+    @JoinColumn(name = "bot_user_id", referencedColumnName = "id")
+    private BotUser botUser;
+    private Timestamp earnedAt;
+    private Timestamp registeredAt;
+    private BigDecimal earningSum;
 
-//        @ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
-        @ManyToOne
-        @JoinColumn(name = "bot_user_id", referencedColumnName = "id")
-        private BotUser botUser;
-        private Timestamp earnedAt;
-        private Timestamp registeredAt;
-        private BigDecimal earningSum;
-
-        @Override
-        public String toString() {
-                return "\n\nEarning: \n" +
-                        "Earning id: " + earningId + "\n" +
-                        "Type of earning: " + typeOfEarning + "\n" +
-                        "User name: " + botUser.getUserName() + "\n" +
-                        "Earned at: " + earnedAt +"\n" +
-                        "Registered at: " + registeredAt + "\n" +
-                        "Earning sum: " + earningSum + "\n\n";
-        }
+    @Override
+    public String toString() {
+        return "\n\nEarning: \n" +
+                "Earning id: " + earningId + "\n" +
+                "Type of earning: " + typeOfEarning + "\n" +
+                "User name: " + botUser.getUserName() + "\n" +
+                "Earned at: " + earnedAt + "\n" +
+                "Registered at: " + registeredAt + "\n" +
+                "Earning sum: " + earningSum + "\n\n";
+    }
 }

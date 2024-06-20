@@ -3,7 +3,6 @@ package com.homeproject.controlbot.service;
 import com.homeproject.controlbot.entity.BotUser;
 import com.homeproject.controlbot.entity.Spending;
 import com.homeproject.controlbot.enums.TypeOfPurchase;
-import com.homeproject.controlbot.repository.BotUserRepository;
 import com.homeproject.controlbot.repository.SpendingRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,21 +21,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith({MockitoExtension.class})
 class SpendingServiceImplTest {
-     @InjectMocks
+    @InjectMocks
     private SpendingServiceImpl spendingService;
     @Mock
     private SpendingRepository spendingRepository;
-    @Mock
-    private BotUserRepository botUserRepository;
 
     private List<Spending> spendingList;
     private List<BotUser> botUserList;
 
-    SpendingServiceImplTest(){
+    SpendingServiceImplTest() {
 
     }
 
@@ -59,7 +55,7 @@ class SpendingServiceImplTest {
                 new Spending(6, TypeOfPurchase.FOOD, "walm", "none", botUserList.get(2), new Timestamp((dateFormat.parse("01-03-2024").getTime())), new Timestamp(System.currentTimeMillis()), new BigDecimal(150)),
                 new Spending(7, TypeOfPurchase.RESORT, "e-tr", "none", botUserList.get(4), new Timestamp((dateFormat.parse("01-08-2010").getTime())), new Timestamp(System.currentTimeMillis()), new BigDecimal(20)),
                 new Spending(8, TypeOfPurchase.FOOD, "Lux", "none", botUserList.get(2), new Timestamp((dateFormat.parse("30-05-2022").getTime())), new Timestamp(System.currentTimeMillis()), new BigDecimal(360))
-                );
+        );
     }
 
 
@@ -68,6 +64,7 @@ class SpendingServiceImplTest {
         Mockito.when(this.spendingRepository.findAll()).thenReturn(this.spendingList);
         Assertions.assertEquals(5, this.spendingService.findAllSpending(1).size());
     }
+
     @Test
     void findAllSpendingEmpty() {
         Mockito.when(this.spendingRepository.findAll()).thenReturn(this.spendingList);
@@ -79,6 +76,7 @@ class SpendingServiceImplTest {
         Mockito.when(this.spendingRepository.findAll()).thenReturn(this.spendingList);
         Assertions.assertEquals(3, this.spendingService.findAllSpendingOfTheYear(2024, 1).size());
     }
+
     @Test
     void findAllSpendingOfTheYearEmpty() {
         Mockito.when(this.spendingRepository.findAll()).thenReturn(this.spendingList);
@@ -122,7 +120,8 @@ class SpendingServiceImplTest {
     void findAllSpendingOfTheDay() {
         Mockito.when(this.spendingRepository.findAll()).thenReturn(this.spendingList);
         Assertions.assertEquals(1, this.spendingService.findAllSpendingOfTheDay(10, 3, 2024, 1).size());
-   }
+    }
+
     @Test
     void findAllSpendingOfTheDayEmpty() {
         Mockito.when(this.spendingRepository.findAll()).thenReturn(this.spendingList);

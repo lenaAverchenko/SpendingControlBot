@@ -9,7 +9,7 @@ import javax.persistence.*;
 import java.sql.Timestamp;
 import java.util.List;
 
-@Entity (name = "bot_users")
+@Entity(name = "bot_users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,11 +22,11 @@ public class BotUser {
     private String userName;
     private String phoneNumber;
 
-    @OneToMany (mappedBy = "botUser",cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "botUser", cascade = CascadeType.ALL)
     @EqualsAndHashCode.Exclude
     private List<Spending> spendingList;
 
-    @OneToMany (mappedBy = "botUser",cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "botUser", cascade = CascadeType.ALL)
     @EqualsAndHashCode.Exclude
     private List<Earning> earningList;
     private Timestamp registeredAt;
